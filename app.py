@@ -23,12 +23,29 @@ if st.button("Predict"):
     input_data = pd.DataFrame([[
         planned_duration_days, team_size, budget_k, num_change_requests,
         pct_resource_util, complexity_score, onshore_pct
-    ]], columns=["planned_duration_days", "team_size", "budget_k", "num_change_requests",
-                 "pct_resource_util", "complexity_score", "onshore_pct"])
+    ]], columns=[
+        "planned_duration_days", "team_size", "budget_k", "num_change_requests",
+        "pct_resource_util", "complexity_score", "onshore_pct"
+    ])
 
-    risk_pred = risk_model.predict(input_data)[0]
+    # Risk probability
+    proba = risk_model.predict_proba(input_data)[:, 1][0]
+    risk_label = "⚠️ Risky" if proba >= 0.5 else "✅ Safe"
+
+    # Delay prediction with confidence interval (for tree models)
     delay_pred = delay_model.predict(input_data)[0]
+    try:
+        import numpy as np
+        all_preds = np.array([est.predict(input_data)[0] for est in delay_model.estimators_])
+        lower = np.percentile(all_preds, 10)
+        upper = np.percentile(all_preds, 90)
+        delay_range = f"{lower:.1f} – {upper:.1f} days"
+    except Exception:
+        delay_range = "Not available (model not ensemble)"
 
+    # Results
     st.subheader("✅ Prediction Results")
-    st.write(f"**Risk Flag:** {'⚠️ Risky' if risk_pred==1 else '✅ Safe'}")
+    st.write(f"**Risk Flag:** {risk_label}")
+    st.write(f"**Risk Probability:** {proba:.2%}")
     st.write(f"**Expected Delay:** {delay_pred:.1f} days")
+    st.write(f"**Delay 80% CI:** {delay_range}")
