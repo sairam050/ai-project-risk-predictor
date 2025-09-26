@@ -11,6 +11,62 @@ delay_model = joblib.load("rf_delay_regressor.joblib")
 st.title("📊 AI Project Risk & Delay Predictor")
 st.write("Enter project details and predict risk & delays instantly!")
 
+# ===== Presets & session state initialization (paste near top, after imports) =====
+# keys used for inputs
+keys = {
+    'planned_duration':'planned_duration',
+    'team_size':'team_size',
+    'budget_k':'budget_k',
+    'num_change_requests':'num_change_requests',
+    'pct_resource_util':'pct_resource_util',
+    'complexity_score':'complexity_score',
+    'onshore_pct':'onshore_pct'
+}
+
+# default values (only set if not present)
+defaults = {
+    'planned_duration': 180,
+    'team_size': 10,
+    'budget_k': 500,
+    'num_change_requests': 1,
+    'pct_resource_util': 1.0,
+    'complexity_score': 0.5,
+    'onshore_pct': 0.5
+}
+
+for k, v in defaults.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
+
+# Presets dictionary
+presets = {
+    "Select a preset": None,
+    "Conservative (Low Risk)": {
+        'planned_duration': 90, 'team_size': 12, 'budget_k': 800,
+        'num_change_requests': 0, 'pct_resource_util': 0.95,
+        'complexity_score': 0.2, 'onshore_pct': 0.8
+    },
+    "Typical (Medium Risk)": {
+        'planned_duration': 180, 'team_size': 8, 'budget_k': 300,
+        'num_change_requests': 2, 'pct_resource_util': 1.0,
+        'complexity_score': 0.5, 'onshore_pct': 0.5
+    },
+    "Risky (High Risk)": {
+        'planned_duration': 360, 'team_size': 4, 'budget_k': 80,
+        'num_change_requests': 8, 'pct_resource_util': 1.3,
+        'complexity_score': 0.9, 'onshore_pct': 0.2
+    }
+}
+
+# Sidebar UI for presets
+st.sidebar.header("Presets & Samples")
+selected_preset = st.sidebar.selectbox("Choose a preset", list(presets.keys()))
+if st.sidebar.button("Load preset"):
+    if presets.get(selected_preset):
+        for k, v in presets[selected_preset].items():
+            st.session_state[k] = v
+        st.experimental_rerun()  # reload with new state
+
 # User inputs
 planned_duration_days = st.number_input("Planned Duration (days)", 30, 1000, 180)
 team_size = st.number_input("Team Size", 2, 100, 10)
