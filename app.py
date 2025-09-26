@@ -110,4 +110,4 @@ if st.button("Predict"):
     # 5) Small footnote with thresholds
     st.caption("Thresholds: Low < 33%, Medium 33–66%, High > 66% (adjustable).")
 
-    st.write(f"**Delay 80% CI:** {delay_range}")
+    
