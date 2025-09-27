@@ -24,7 +24,7 @@ st.title("📊 AI Project Risk & Delay Predictor")
 st.caption(
     "Enter project details in the left sidebar and click **Predict**. "
     "You’ll get risk & delay estimates, scenario comparisons, an explanation (if available), "
-    "and a polished PDF you can download."
+    "and a polished PDF report you can download."
 )
 
 
@@ -38,16 +38,15 @@ def download_if_missing(url, output):
 @st.cache_resource
 def load_models():
     """Download models if missing and load them once (cached)."""
-    # Google Drive direct links (update with your own IDs)
-    risk_url  = "https://drive.google.com/uc?id=1EKFSP7P1Tx57NiKGm8G3CA5Viecm-g-f"
-    delay_url = "https://drive.google.com/uc?id=1QHdEDIldTQV-ZfoikVXGIF8URT1eE71-"
+    # Google Drive direct links
+    risk_url  = "https://drive.google.com/uc?id=1qhqow2uag7sg2eHeMdFTsI9OpRVSIklR"
+    delay_url = "https://drive.google.com/uc?id=14179vBnQIewcSTR2Csyx1t3jKN7lmsWk"
 
     download_if_missing(risk_url, "rf_risk_classifier.joblib")
     download_if_missing(delay_url, "rf_delay_regressor.joblib")
 
     risk_model = joblib.load("rf_risk_classifier.joblib")
     delay_model = joblib.load("rf_delay_regressor.joblib")
-
     return risk_model, delay_model
 
 
@@ -102,43 +101,35 @@ def generate_pdf(results, candidate_name="Your Name / Org", logo_path=None):
     styles = getSampleStyleSheet()
     story = []
 
-    if logo_path:
-        try:
-            story.append(Image(logo_path, width=80, height=80))
-            story.append(Spacer(1, 10))
-        except Exception:
-            pass
-
+    # Header
     story.append(Paragraph("📊 AI Project Risk & Delay Predictor — Report", styles["Title"]))
     story.append(Spacer(1, 8))
     story.append(Paragraph(f"<b>Prepared for:</b> {candidate_name}", styles["Normal"]))
     story.append(Paragraph(f"<b>Generated on:</b> {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles["Normal"]))
     story.append(Spacer(1, 16))
 
+    # Summary
     story.append(Paragraph("<b>🔹 Summary</b>", styles["Heading2"]))
     story.append(Paragraph(f"<b>Risk Probability:</b> {results['risk_proba']:.1%}", styles["Normal"]))
     story.append(Paragraph(f"<b>Expected Delay:</b> {results['delay_pred']:.1f} days", styles["Normal"]))
     story.append(Spacer(1, 16))
 
+    # Scenario Table
     story.append(Paragraph("<b>📊 Scenario Comparison</b>", styles["Heading2"]))
     data = [["Scenario", "Risk Probability", "Expected Delay (days)"]]
-    row_styles = []
-    for i, (label, (prob, delay)) in enumerate(results["results_map"].items(), start=1):
-        if prob < 0.40: bg = colors.lightgreen
-        elif prob < 0.75: bg = colors.lightyellow
-        else: bg = colors.salmon
+    for label, (prob, delay) in results["results_map"].items():
         data.append([label, f"{prob:.1%}", f"{delay:.1f}"])
-        row_styles.append(("BACKGROUND", (0, i), (-1, i), bg))
     tab = Table(data, colWidths=[150, 120, 150])
     tab.setStyle(TableStyle([
         ("GRID", (0, 0), (-1, -1), 0.6, colors.black),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-    ] + row_styles))
+    ]))
     story.append(tab)
     story.append(Spacer(1, 16))
 
+    # Scenario Chart
     story.append(Paragraph("<b>📈 Scenario Comparison Chart</b>", styles["Heading2"]))
     try:
         story.append(Image(BytesIO(results["chart_png"]), width=400, height=250))
@@ -146,6 +137,7 @@ def generate_pdf(results, candidate_name="Your Name / Org", logo_path=None):
         story.append(Paragraph("Chart unavailable.", styles["Italic"]))
     story.append(Spacer(1, 16))
 
+    # SHAP / Importance
     if results.get("shap_png"):
         story.append(Paragraph("<b>🔎 Feature Importance / SHAP</b>", styles["Heading2"]))
         try:
@@ -154,7 +146,8 @@ def generate_pdf(results, candidate_name="Your Name / Org", logo_path=None):
             story.append(Paragraph("Explanation unavailable.", styles["Italic"]))
         story.append(Spacer(1, 16))
 
-    story.append(Paragraph("<i>Thresholds: Low < 40%, Medium 40–75%, High > 75%</i>", styles["Italic"]))
+    # Footer
+    story.append(Paragraph("<i>Thresholds: Low < 40%, Medium 40–70%, High > 70%</i>", styles["Italic"]))
     story.append(Paragraph("© 2025 Project Risk AI — Demo Report", styles["Normal"]))
 
     doc.build(story)
@@ -165,7 +158,6 @@ def generate_pdf(results, candidate_name="Your Name / Org", logo_path=None):
 # ================== Load Models ==================
 try:
     risk_model, delay_model = load_models()
-    print("✅ Models loaded:", type(risk_model), type(delay_model))
 except Exception as e:
     st.error(f"❌ Could not load models: {e}")
     st.stop()
@@ -173,7 +165,7 @@ except Exception as e:
 
 # ================== Sidebar Inputs ==================
 st.sidebar.header("📂 Project Inputs")
-candidate_name = st.sidebar.text_input("Name/Company for PDF", value="Sairam Thonuunuri")
+candidate_name = st.sidebar.text_input("Name/Company for PDF", value="Recruiter Demo")
 
 planned_duration_days = st.sidebar.number_input("Planned Duration (days)", 30, 1000, 180)
 team_size            = st.sidebar.number_input("Team Size", 2, 100, 10)
@@ -241,15 +233,13 @@ if st.sidebar.button("🚀 Predict"):
         if fig_imp is not None:
             shap_png = fig_to_png_bytes(fig_imp)
 
-# Banner (Adjusted thresholds for demo clarity)
-        # Banner (Adjusted thresholds for demo clarity)
-    if risk_proba > 0.85:
+    # Risk banner with tuned thresholds
+    if risk_proba > 0.70:
         st.error(f"⚠️ High risk — {risk_proba:.1%}")
-    elif risk_proba > 0.50:
+    elif risk_proba > 0.40:
         st.warning(f"🟠 Medium risk — {risk_proba:.1%}")
     else:
         st.success(f"✅ Low risk — {risk_proba:.1%}")
-
 
     # Metrics
     c1, c2 = st.columns(2)
