@@ -55,3 +55,34 @@ except Exception as e:
 st.markdown("""---
 This is a scaffold to connect your trained models to an interactive demo. Expand with SHAP plots, scenario sliders, and a 'Run scenario' panel to show mitigation impact.
 """)
+
+# ================== Scenario Simulation Panel ==================
+st.header("🔮 Scenario Simulation")
+
+st.write("Test how changing certain project factors impacts risk & delay.")
+
+# Inputs for simulation
+sim_team_size = st.slider("Simulated Team Size", 2, 100, team_size)
+sim_budget = st.slider("Simulated Budget (in $1000s)", 100, 10000, budget_k)
+sim_complexity = st.slider("Simulated Complexity Score", 0.0, 1.0, complexity_score)
+
+if st.button("Run Simulation"):
+    sim_data = pd.DataFrame([[
+        planned_duration_days, sim_team_size, sim_budget, num_change_requests,
+        pct_resource_util, sim_complexity, onshore_pct
+    ]], columns=[
+        "planned_duration_days", "team_size", "budget_k", "num_change_requests",
+        "pct_resource_util", "complexity_score", "onshore_pct"
+    ])
+
+    sim_proba = float(risk_model.predict_proba(sim_data)[:, 1][0])
+    sim_delay = float(delay_model.predict(sim_data)[0])
+
+    st.subheader("📊 Simulation Results")
+    st.write(f"**Risk Probability:** {sim_proba:.1%}")
+    st.write(f"**Expected Delay:** {sim_delay:.1f} days")
+
+    if sim_delay > planned_duration_days * 0.15:
+        st.warning("⚠️ Projected delay exceeds 15% of planned duration.")
+    else:
+        st.success("✅ Projected delay looks manageable.")
