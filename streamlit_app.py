@@ -124,68 +124,55 @@ if st.sidebar.button("Predict"):
     ax2.legend(loc="upper right")
     st.pyplot(fig)
 
-    # 4) Explainability with SHAP
-    with st.expander("🔎 Why did the model predict this?"):
-        try:
-            import shap
-            # Create SHAP explainer using TreeExplainer (works well for RandomForest/XGBoost)
-            explainer = shap.Explainer(risk_model, input_df)
-            shap_values = explainer(input_df)
-
-            # Generate SHAP bar plot (top 7 features)
-            fig_shap = shap.plots.bar(shap_values[0], show=False, max_display=7)
-            st.pyplot(fig_shap)
-
-        except Exception as e:
-            st.warning("SHAP explanation not available.")
-            st.write("Error:", e)
-
-    # 5) Small footnote with thresholds
-    st.caption("Thresholds: Low < 33%,  Medium 33–66%, High > 66% (adjustable).")
-
-# ================== Scenario Simulation Panel ==================
-st.header("🔮 Scenario Simulation")
-st.write("Compare base, optimistic, and pessimistic project assumptions.")
-
-scenarios = {
-    "Base Case": [planned_duration_days, team_size, budget_k, num_change_requests,
-                  pct_resource_util, complexity_score, onshore_pct],
-    "Optimistic": [planned_duration_days*0.9, team_size+2, budget_k*1.2,
-                   max(0, num_change_requests-1), pct_resource_util*0.9,
-                   complexity_score*0.8, min(1, onshore_pct+0.1)],
-    "Pessimistic": [planned_duration_days*1.2, max(2, team_size-2), budget_k*0.8,
-                    num_change_requests+2, pct_resource_util*1.1,
-                    min(1, complexity_score*1.2), max(0, onshore_pct-0.1)]
-}
-
-results = {}
-for label, vals in scenarios.items():
-    df = pd.DataFrame([vals], columns=input_df.columns)
-    risk_proba = float(risk_model.predict_proba(df)[:, 1][0])
-    delay_est = float(delay_model.predict(df)[0])
-    results[label] = (risk_proba, delay_est)
-
-st.subheader("📊 Scenario Comparison Table")
-comparison = pd.DataFrame(results, index=["Risk Probability", "Expected Delay (days)"]).T
-comparison["Risk Probability"] = comparison["Risk Probability"].apply(lambda x: f"{x:.1%}")
-st.dataframe(comparison)
-
-# ================== Scenario Comparison Chart ==================
-st.subheader("📊 Scenario Comparison Chart")
+# ================== SHAP Explainability ==================
+import shap
 import matplotlib.pyplot as plt
 
-labels = list(results.keys())
-risks = [v[0] for v in results.values()]
-delays = [v[1] for v in results.values()]
+st.subheader("🔍 Why did the model predict this?")
 
-fig, ax1 = plt.subplots(figsize=(8, 5))
+try:
+    # Only works if model supports predict_proba
+    explainer = shap.Explainer(risk_model, input_df)
+    shap_values = explainer(input_df)
 
-ax2 = ax1.twinx()
-ax1.bar(labels, risks, color="tomato", alpha=0.7, label="Risk (%)")
-ax2.bar(labels, delays, color="skyblue", alpha=0.7, label="Delay (days)")
+    # Plot top feature importances
+    fig, ax = plt.subplots()
+    shap.plots.bar(shap_values, max_display=7, show=False)
+    st.pyplot(fig)
 
-ax1.set_ylabel("Risk Probability (%)", color="tomato")
-ax2.set_ylabel("Expected Delay (days)", color="skyblue")
-ax1.set_title("Scenario Comparison: Risk vs Delay")
+except Exception as e:
+    st.info("ℹ️ SHAP explanation not available for this model.")
+    st.caption(f"(Debug: {e})")
 
-st.pyplot(fig)
+# ================== PDF Export ==================
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table
+from reportlab.lib.styles import getSampleStyleSheet
+
+if st.button("📥 Download PDF Report"):
+    # Create PDF
+    doc = SimpleDocTemplate("report.pdf")
+    styles = getSampleStyleSheet()
+    story = []
+
+    story.append(Paragraph("AI Project Risk & Delay Predictor — Report", styles['Title']))
+    story.append(Spacer(1, 12))
+
+    story.append(Paragraph(f"Risk Probability: {proba:.1%}", styles['Normal']))
+    story.append(Paragraph(f"Expected Delay: {delay_pred:.1f} days", styles['Normal']))
+    story.append(Spacer(1, 12))
+
+    story.append(Paragraph("Scenario Comparison", styles['Heading2']))
+
+    data = [["Scenario", "Risk Probability", "Expected Delay (days)"]]
+    for label, (r, d) in results.items():
+        data.append([label, f"{r:.1%}", f"{d:.2f}"])
+    table = Table(data)
+    story.append(table)
+
+    story.append(Spacer(1, 12))
+    story.append(Paragraph("Thresholds: Low < 33%, Medium 33–66%, High > 66%", styles['Italic']))
+
+    doc.build(story)
+
+    with open("report.pdf", "rb") as f:
+        st.download_button("⬇️ Save Report", f, file_name="risk_report.pdf")
