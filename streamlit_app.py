@@ -104,10 +104,24 @@ st.subheader("📈 Scenario Comparison Chart")
 comparison_numeric = pd.DataFrame(results, index=["Risk Probability", "Expected Delay (days)"]).T
 
 fig, ax1 = plt.subplots(figsize=(8, 5))
-comparison_numeric["Risk Probability"].plot(kind="bar", ax=ax1, color="tomato", position=0, width=0.4, label="Risk (%)")
+
+# Plot risk probability as bars
+comparison_numeric["Risk Probability"].plot(
+    kind="bar", ax=ax1, color="tomato", position=0, width=0.4, label="Risk (%)"
+)
+
+# Plot delay on secondary axis
 ax2 = ax1.twinx()
-comparison_numeric["Expected Delay (days)"].plot(kind="bar", ax=ax2, color="skyblue", position=1, width=0.4, label="Delay (days)")
+comparison_numeric["Expected Delay (days)"].plot(
+    kind="bar", ax=ax2, color="skyblue", position=1, width=0.4, label="Delay (days)"
+)
 
 ax1.set_ylabel("Risk Probability (%)", color="tomato")
 ax2.set_ylabel("Expected Delay (days)", color="skyblue")
-ax1.set_xticklabels(c_
+ax1.set_xticklabels(comparison_numeric.index, rotation=0)
+
+fig.suptitle("Scenario Comparison: Risk vs Delay", fontsize=14, fontweight="bold")
+ax1.legend(loc="upper left")
+ax2.legend(loc="upper right")
+
+st.pyplot(fig)
