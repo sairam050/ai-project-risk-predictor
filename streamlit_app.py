@@ -20,7 +20,11 @@ st.set_page_config(page_title="AI Project Risk & Delay Predictor", layout="wide"
 
 # Always show the title & short instruction (no blank main screen)
 st.title("📊 AI Project Risk & Delay Predictor")
-st.caption("Enter project details on the left and click **Predict** to see risk, delays, scenarios, explainability, and download a polished PDF report.")
+st.caption(
+    "Enter project details in the left sidebar and click **Predict**. "
+    "You’ll get risk & delay estimates, scenario comparisons, an explanation (if available), "
+    "and a polished PDF you can download."
+)
 
 
 # ================== Helpers ==================
@@ -48,7 +52,6 @@ def make_shap_figure(model, X):
         except Exception:
             # Older SHAP (returns arrays)
             shap_values = explainer.shap_values(X)
-            # Try summary bar
             try:
                 shap.summary_plot(shap_values, X, plot_type="bar", show=False, max_display=7)
             except Exception:
@@ -82,7 +85,7 @@ def make_importance_figure(model, feature_names):
     return None
 
 
-def figure_to_png_bytes(fig):
+def fig_to_png_bytes(fig):
     """Save a Matplotlib Figure to PNG bytes."""
     buf = BytesIO()
     fig.savefig(buf, format="png", bbox_inches="tight")
@@ -91,7 +94,7 @@ def figure_to_png_bytes(fig):
     return buf.getvalue()
 
 
-def generate_pdf(results, candidate="Sairam Thonuunuri", logo_path=None):
+def generate_pdf(results, candidate_name="Your Name / Org", logo_path=None):
     """
     Build a polished PDF in-memory with ReportLab.
     - results dict must contain:
@@ -113,7 +116,7 @@ def generate_pdf(results, candidate="Sairam Thonuunuri", logo_path=None):
 
     story.append(Paragraph("📊 AI Project Risk & Delay Predictor — Report", styles["Title"]))
     story.append(Spacer(1, 8))
-    story.append(Paragraph(f"<b>Prepared for:</b> {candidate}", styles["Normal"]))
+    story.append(Paragraph(f"<b>Prepared for:</b> {candidate_name}", styles["Normal"]))
     story.append(Paragraph(f"<b>Generated on:</b> {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles["Normal"]))
     story.append(Spacer(1, 16))
 
@@ -130,16 +133,13 @@ def generate_pdf(results, candidate="Sairam Thonuunuri", logo_path=None):
 
     data = [["Scenario", "Risk Probability", "Expected Delay (days)"]]
     row_styles = []
-    # Use results_map directly to avoid any % parsing ambiguity
     for i, (label, (prob, delay)) in enumerate(results["results_map"].items(), start=1):
-        # Choose background by risk level
         if prob < 0.33:
             bg = colors.lightgreen
         elif prob < 0.66:
             bg = colors.lightyellow
         else:
             bg = colors.salmon
-
         data.append([label, f"{prob:.1%}", f"{delay:.1f}"])
         row_styles.append(("BACKGROUND", (0, i), (-1, i), bg))
 
@@ -193,6 +193,8 @@ except Exception:
 
 # ================== Sidebar Inputs ==================
 st.sidebar.header("📂 Project Inputs")
+candidate_name = st.sidebar.text_input("Name/Company for PDF", value="Sairam Thonuunuri")
+
 planned_duration_days = st.sidebar.number_input("Planned Duration (days)", 30, 1000, 180)
 team_size            = st.sidebar.number_input("Team Size", 2, 100, 10)
 budget_k             = st.sidebar.number_input("Budget (in $1000s)", 100, 10000, 500)
@@ -213,7 +215,7 @@ input_df = pd.DataFrame([[
 # ================== Predict & Render ==================
 clicked = st.sidebar.button("🚀 Predict")
 
-# If clicked OR we already have a previous result, render results.
+# Render results when clicked or when we already have prior results
 if clicked or ("__last__" in st.session_state):
 
     # Recompute only when clicked; otherwise reuse last results for stability
@@ -241,11 +243,11 @@ if clicked or ("__last__" in st.session_state):
             d = float(delay_model.predict(df)[0])
             results_map[label] = (p, d)
 
-        # Comparison DF for on-screen table
+        # ---------- Comparison DF for on-screen table ----------
         comparison = pd.DataFrame(results_map, index=["Risk Probability", "Expected Delay (days)"]).T
         comparison["Risk Probability"] = comparison["Risk Probability"].apply(lambda v: f"{v:.1%}")
 
-        # -------- Scenario chart --------
+        # ---------- Scenario chart ----------
         fig_chart, ax1 = plt.subplots(figsize=(7, 4))
         labels = list(results_map.keys())
         risk_vals = [results_map[k][0] for k in labels]
@@ -256,19 +258,19 @@ if clicked or ("__last__" in st.session_state):
         ax2.plot(labels, delay_vals, marker="o", color="blue")
         ax2.set_ylabel("Expected Delay (days)", color="blue")
         ax1.set_title("Scenario Comparison: Risk vs Delay")
-        chart_png = figure_to_png_bytes(fig_chart)
+        chart_png = fig_to_png_bytes(fig_chart)
 
-        # -------- SHAP / feature-importance figure --------
-        fig_shap = make_shap_figure(risk_model, input_df)
+        # ---------- SHAP or Feature Importance (optional) ----------
         shap_png = None
-        if fig_shap is None:
+        fig_shap = make_shap_figure(risk_model, input_df)
+        if fig_shap is not None:
+            shap_png = fig_to_png_bytes(fig_shap)
+        else:
             fig_imp = make_importance_figure(risk_model, input_df.columns)
             if fig_imp is not None:
-                shap_png = figure_to_png_bytes(fig_imp)
-        else:
-            shap_png = figure_to_png_bytes(fig_shap)
+                shap_png = fig_to_png_bytes(fig_imp)
 
-        # Save to session (so results persist after any small UI change)
+        # Save to session (so download button remains available)
         st.session_state["__last__"] = {
             "risk_proba": risk_proba,
             "delay_pred": delay_pred,
@@ -290,10 +292,10 @@ if clicked or ("__last__" in st.session_state):
         st.success(f"✅ Low risk — {R['risk_proba']:.1%}")
 
     # Quick metrics
-    col1, col2 = st.columns(2)
-    with col1:
+    c1, c2 = st.columns(2)
+    with c1:
         st.metric("Risk Probability", f"{R['risk_proba']:.2%}")
-    with col2:
+    with c2:
         st.metric("Expected Delay", f"{R['delay_pred']:.1f} days")
 
     # Scenario table
@@ -304,16 +306,26 @@ if clicked or ("__last__" in st.session_state):
     st.subheader("📈 Scenario Comparison Chart")
     st.image(BytesIO(R["chart_png"]), use_container_width=True)
 
-    # Explainability (never blank—show SHAP or feature importance or info)
+    # Explainability (never blank—show SHAP/importance or info)
     st.subheader("🔎 Why did the model predict this?")
     if R["shap_png"] is not None:
-        st.image(BytesIO(R["shap_png"]), caption="Top drivers of risk")
+        st.image(BytesIO(R["shap_png"]), caption="Top drivers of risk", use_container_width=False)
     else:
-        st.info("ℹ️ Explainability not available for this model; SHAP and feature importances were unavailable.")
+        st.info("ℹ️ Explainability not available for this model (SHAP/feature importances unavailable).")
 
     # PDF download (in main area, right below content)
     st.subheader("📑 Download Report")
-    pdf_buf = generate_pdf(R, candidate="Sairam Thonuunuri", logo_path=None)
+    pdf_buf = generate_pdf(
+        {
+            "risk_proba": R["risk_proba"],
+            "delay_pred": R["delay_pred"],
+            "results_map": R["results_map"],
+            "chart_png": R["chart_png"],
+            "shap_png": R["shap_png"],
+        },
+        candidate_name=candidate_name,
+        logo_path=None  # If you upload a logo file, put its filename here.
+    )
     st.download_button(
         "⬇️ Download PDF Report",
         data=pdf_buf,
@@ -322,5 +334,5 @@ if clicked or ("__last__" in st.session_state):
     )
 
 else:
-    # No prediction yet — show a friendly nudge
+    # No prediction yet — keep the page friendly
     st.info("Adjust inputs on the left and click **Predict** to generate results.")
