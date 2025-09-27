@@ -249,12 +249,14 @@ if clicked or ("__last__" in st.session_state):
     # Display results
     R = st.session_state["__last__"]
 
-    if R["risk_proba"] > 0.66:
-        st.error(f"⚠️ High risk — {R['risk_proba']:.1%}")
-    elif R["risk_proba"] > 0.33:
-        st.warning(f"🟠 Medium risk — {R['risk_proba']:.1%}")
-    else:
-        st.success(f"✅ Low risk — {R['risk_proba']:.1%}")
+    # Adjusted thresholds for better demo spread
+if R["risk_proba"] > 0.75:
+    st.error(f"⚠️ High risk — {R['risk_proba']:.1%}")
+elif R["risk_proba"] > 0.55:
+    st.warning(f"🟠 Medium risk — {R['risk_proba']:.1%}")
+else:
+    st.success(f"✅ Low risk — {R['risk_proba']:.1%}")
+
 
     c1, c2 = st.columns(2)
     with c1: st.metric("Risk Probability", f"{R['risk_proba']:.2%}")
