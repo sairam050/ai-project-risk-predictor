@@ -57,7 +57,6 @@ This is a scaffold to connect your trained models to an interactive demo. Expand
 """)
 
 # ================== Scenario Simulation Panel ==================
-# ================== Scenario Simulation Panel ==================
 st.header("🔮 Scenario Simulation")
 
 st.write("Test how changing certain project factors impacts risk & delay.")
