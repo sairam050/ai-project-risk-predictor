@@ -187,6 +187,8 @@ input_df = pd.DataFrame([[
 # ================== Predict & Render ==================
 if st.sidebar.button("🚀 Predict"):
     risk_proba = float(risk_model.predict_proba(input_df)[:, 1][0])
+    # Rescale probabilities to spread across 0–1
+    risk_proba = min(max((risk_proba - 0.3) / 0.7, 0), 1)
     delay_pred = float(delay_model.predict(input_df)[0])
 
     scenarios = {
