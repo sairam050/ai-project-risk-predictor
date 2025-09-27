@@ -1,10 +1,8 @@
-scikit-learn
-xgboost
-shap
+streamlit
 pandas
 numpy
 matplotlib
 joblib
-streamlit
+shap
 reportlab
 gdown
