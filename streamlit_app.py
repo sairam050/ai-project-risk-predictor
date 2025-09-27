@@ -38,10 +38,9 @@ def download_if_missing(url, output):
 @st.cache_resource
 def load_models():
     """Download models if missing and load them once (cached)."""
-
-    # ✅ Your latest Drive links
-    risk_url  = "https://drive.google.com/uc?id=1QHdEDIldTQV-ZfoikVXGIF8URT1eE71-"
-    delay_url = "https://drive.google.com/uc?id=1EKFSP7P1Tx57NiKGm8G3CA5Viecm-g-f"
+    # Google Drive direct links (update with your own IDs)
+    risk_url  = "https://drive.google.com/uc?id=1EKFSP7P1Tx57NiKGm8G3CA5Viecm-g-f"
+    delay_url = "https://drive.google.com/uc?id=1QHdEDIldTQV-ZfoikVXGIF8URT1eE71-"
 
     download_if_missing(risk_url, "rf_risk_classifier.joblib")
     download_if_missing(delay_url, "rf_delay_regressor.joblib")
@@ -126,7 +125,7 @@ def generate_pdf(results, candidate_name="Your Name / Org", logo_path=None):
     row_styles = []
     for i, (label, (prob, delay)) in enumerate(results["results_map"].items(), start=1):
         if prob < 0.40: bg = colors.lightgreen
-        elif prob < 0.70: bg = colors.lightyellow
+        elif prob < 0.75: bg = colors.lightyellow
         else: bg = colors.salmon
         data.append([label, f"{prob:.1%}", f"{delay:.1f}"])
         row_styles.append(("BACKGROUND", (0, i), (-1, i), bg))
@@ -155,7 +154,7 @@ def generate_pdf(results, candidate_name="Your Name / Org", logo_path=None):
             story.append(Paragraph("Explanation unavailable.", styles["Italic"]))
         story.append(Spacer(1, 16))
 
-    story.append(Paragraph("<i>Thresholds: Low < 40%, Medium 40–70%, High > 70%</i>", styles["Italic"]))
+    story.append(Paragraph("<i>Thresholds: Low < 40%, Medium 40–75%, High > 75%</i>", styles["Italic"]))
     story.append(Paragraph("© 2025 Project Risk AI — Demo Report", styles["Normal"]))
 
     doc.build(story)
@@ -242,8 +241,8 @@ if st.sidebar.button("🚀 Predict"):
         if fig_imp is not None:
             shap_png = fig_to_png_bytes(fig_imp)
 
-    # Banner with NEW thresholds
-    if risk_proba > 0.70:
+    # Risk banner with calibrated thresholds
+    if risk_proba > 0.75:
         st.error(f"⚠️ High risk — {risk_proba:.1%}")
     elif risk_proba > 0.40:
         st.warning(f"🟠 Medium risk — {risk_proba:.1%}")
