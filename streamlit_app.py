@@ -148,20 +148,18 @@ input_df = pd.DataFrame([{
 st.header("🔮 Scenario Simulation")
 st.write("Test how changing certain project factors impacts risk & delay.")
 
-# User-controlled sliders for testing scenarios
 sim_team_size = st.slider("Simulated Team Size", 2, 100, team_size)
 sim_budget = st.slider("Simulated Budget (in $1000s)", 100, 10000, budget_k)
 sim_complexity = st.slider("Simulated Complexity Score", 0.0, 1.0, complexity_score)
 
-# Main simulation button
 if st.button("Run Simulation"):
     sim_data = pd.DataFrame([[
         planned_duration_days, sim_team_size, sim_budget, num_change_requests,
         pct_resource_util, sim_complexity, onshore_pct
-    ]], columns=input_df.columns)   # ✅ FIXED (was input_data)
+    ]], columns=input_df.columns)
 
-    sim_proba = float(risk_model.predict_proba(sim_data)[:, 1][0])
-    sim_delay = float(delay_model.predict(sim_data)[0])
+    sim_proba = float(clf.predict_proba(sim_data)[:, 1][0])
+    sim_delay = float(reg.predict(sim_data)[0])
 
     st.subheader("📊 Simulation Results")
     st.write(f"**Risk Probability:** {sim_proba:.1%}")
@@ -180,20 +178,32 @@ if st.sidebar.button("Run Scenario Simulation"):
                       pct_resource_util, complexity_score, onshore_pct],
         "Optimistic": [planned_duration_days*0.9, team_size+2, budget_k*1.2,
                        max(0, num_change_requests-1), pct_resource_util*0.9,
-                       complexity_score*0.8, min(1.0, onshore_pct+0.1)],
+                       complexity_score*0.8, onshore_pct+0.1],
         "Pessimistic": [planned_duration_days*1.2, max(2, team_size-2), budget_k*0.8,
                         num_change_requests+2, pct_resource_util*1.1,
-                        min(1.0, complexity_score*1.2), max(0, onshore_pct-0.1)]
+                        complexity_score*1.2, max(0, onshore_pct-0.1)]
     }
 
     results = {}
     for label, vals in scenarios.items():
-        df = pd.DataFrame([vals], columns=input_df.columns)   # ✅ Correct reference
-        risk_proba = float(risk_model.predict_proba(df)[:, 1][0])
-        delay_est = float(delay_model.predict(df)[0])
+        df = pd.DataFrame([vals], columns=input_df.columns)
+        risk_proba = float(clf.predict_proba(df)[:, 1][0])
+        delay_est = float(reg.predict(df)[0])
         results[label] = (risk_proba, delay_est)
 
     st.subheader("📊 Scenario Comparison Table")
     comparison = pd.DataFrame(results, index=["Risk Probability", "Expected Delay (days)"]).T
     comparison["Risk Probability"] = comparison["Risk Probability"].apply(lambda x: f"{x:.1%}")
     st.dataframe(comparison)
+
+    # ---------- NEW: Add visualization ----------
+    st.subheader("📈 Visual Comparison")
+
+    # Convert back to numeric for plotting
+    comparison_numeric = pd.DataFrame(results, index=["Risk Probability", "Expected Delay (days)"]).T
+
+    # Bar chart for risk probability
+    st.bar_chart(comparison_numeric["Risk Probability"])
+
+    # Bar chart for expected delay
+    st.bar_chart(comparison_numeric["Expected Delay (days)"])
