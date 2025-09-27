@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 from io import BytesIO
 import datetime
 import shap
+import gdown
+import os
 
 # PDF (ReportLab)
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
@@ -18,7 +20,7 @@ from reportlab.lib import colors
 # ================== Page Config ==================
 st.set_page_config(page_title="AI Project Risk & Delay Predictor", layout="wide")
 
-# Always show the title & short instruction
+# Title & caption
 st.title("📊 AI Project Risk & Delay Predictor")
 st.caption(
     "Enter project details in the left sidebar and click **Predict**. "
@@ -27,10 +29,28 @@ st.caption(
 )
 
 
+# ================== Model Download Helper ==================
+def download_models():
+    """Download models from Google Drive if missing."""
+    if not os.path.exists("rf_risk_classifier.joblib"):
+        gdown.download(
+            "https://drive.google.com/uc?export=download&id=1cVk3B8PEVFZMBWBfnwgUNtotWtWe-7eP",
+            "rf_risk_classifier.joblib",
+            quiet=False
+        )
+    if not os.path.exists("rf_delay_regressor.joblib"):
+        gdown.download(
+            "https://drive.google.com/uc?export=download&id=1rMO-fgZX2SRuhz1R3RH5w90alAgUQ6Gq",
+            "rf_delay_regressor.joblib",
+            quiet=False
+        )
+
+
 # ================== Helpers ==================
 @st.cache_resource
 def load_models():
     """Load models once and cache them for faster reruns."""
+    download_models()
     risk_model = joblib.load("rf_risk_classifier.joblib")
     delay_model = joblib.load("rf_delay_regressor.joblib")
     return risk_model, delay_model
@@ -113,8 +133,8 @@ def generate_pdf(results, candidate_name="Your Name / Org", logo_path=None):
     data = [["Scenario", "Risk Probability", "Expected Delay (days)"]]
     row_styles = []
     for i, (label, (prob, delay)) in enumerate(results["results_map"].items(), start=1):
-        if prob < 0.70: bg = colors.lightgreen
-        elif prob < 0.80: bg = colors.lightyellow
+        if prob < 0.33: bg = colors.lightgreen
+        elif prob < 0.66: bg = colors.lightyellow
         else: bg = colors.salmon
         data.append([label, f"{prob:.1%}", f"{delay:.1f}"])
         row_styles.append(("BACKGROUND", (0, i), (-1, i), bg))
@@ -149,7 +169,7 @@ def generate_pdf(results, candidate_name="Your Name / Org", logo_path=None):
         story.append(Spacer(1, 18))
 
     # Footer
-    story.append(Paragraph("<i>Thresholds: Low ≤ 70%, Medium 70–80%, High > 80%</i>", styles["Italic"]))
+    story.append(Paragraph("<i>Thresholds: Low < 33%, Medium 33–66%, High > 66%</i>", styles["Italic"]))
     story.append(Spacer(1, 6))
     story.append(Paragraph("© 2025 Project Risk AI — Demo Report", styles["Normal"]))
 
@@ -162,7 +182,7 @@ def generate_pdf(results, candidate_name="Your Name / Org", logo_path=None):
 try:
     risk_model, delay_model = load_models()
 except Exception:
-    st.error("❌ Could not load models. Ensure rf_risk_classifier.joblib & rf_delay_regressor.joblib are present.")
+    st.error("❌ Could not load models. Ensure Google Drive links or model files are valid.")
     st.stop()
 
 
@@ -249,10 +269,10 @@ if clicked or ("__last__" in st.session_state):
     # Display results
     R = st.session_state["__last__"]
 
-    # Updated thresholds
-    if R["risk_proba"] > 0.80:
+    # Adjusted thresholds for demo
+    if R["risk_proba"] > 0.70:
         st.error(f"⚠️ High risk — {R['risk_proba']:.1%}")
-    elif R["risk_proba"] > 0.70:
+    elif R["risk_proba"] > 0.45:
         st.warning(f"🟠 Medium risk — {R['risk_proba']:.1%}")
     else:
         st.success(f"✅ Low risk — {R['risk_proba']:.1%}")
