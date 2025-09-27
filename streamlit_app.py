@@ -11,7 +11,7 @@ import joblib
 # ================== Page Config ==================
 st.set_page_config(page_title="AI Project Risk & Delay Predictor", layout="wide")
 
-st.title("📊 AI Project Risk & Delay Predictor")
+st.title("📊 AI Project Risk & Delay Predictor- UPDATED")
 st.write("Enter project details and predict risk & delays instantly!")
 
 # ================== Load Models ==================
