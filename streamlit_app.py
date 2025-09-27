@@ -198,14 +198,30 @@ if st.sidebar.button("Run Scenario Simulation"):
     comparison["Risk Probability"] = comparison["Risk Probability"].apply(lambda x: f"{x:.1%}")
     st.dataframe(comparison)
 
-    # ---------- NEW: Add visualization ----------
-    st.subheader("📈 Visual Comparison")
+        # ---------- UPDATED: Grouped Bar Chart ----------
+    st.subheader("📈 Visual Comparison (Risk vs Delay)")
 
-    # Convert back to numeric for plotting
+    import matplotlib.pyplot as plt
+
     comparison_numeric = pd.DataFrame(results, index=["Risk Probability", "Expected Delay (days)"]).T
 
-    # Bar chart for risk probability
-    st.bar_chart(comparison_numeric["Risk Probability"])
+    fig, ax1 = plt.subplots(figsize=(8, 5))
 
-    # Bar chart for expected delay
-    st.bar_chart(comparison_numeric["Expected Delay (days)"])
+    # Plot risk probability as bars
+    comparison_numeric["Risk Probability"].plot(kind="bar", ax=ax1, color="tomato", position=0, width=0.4, label="Risk Probability (%)")
+
+    # Plot delay as bars (secondary y-axis for better scaling)
+    ax2 = ax1.twinx()
+    comparison_numeric["Expected Delay (days)"].plot(kind="bar", ax=ax2, color="skyblue", position=1, width=0.4, label="Expected Delay (days)")
+
+    # Labels & formatting
+    ax1.set_ylabel("Risk Probability (%)", color="tomato")
+    ax2.set_ylabel("Expected Delay (days)", color="skyblue")
+    ax1.set_xticklabels(comparison_numeric.index, rotation=0)
+
+    # Title & legends
+    fig.suptitle("Scenario Comparison: Risk vs Delay", fontsize=14, fontweight="bold")
+    ax1.legend(loc="upper left")
+    ax2.legend(loc="upper right")
+
+    st.pyplot(fig)
