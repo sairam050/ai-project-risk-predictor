@@ -57,6 +57,7 @@ This is a scaffold to connect your trained models to an interactive demo. Expand
 """)
 
 # ================== Scenario Simulation Panel ==================
+# ================== Scenario Simulation Panel ==================
 st.header("🔮 Scenario Simulation")
 
 st.write("Test how changing certain project factors impacts risk & delay.")
@@ -75,9 +76,8 @@ if st.button("Run Simulation"):
         "pct_resource_util", "complexity_score", "onshore_pct"
     ])
 
-sim_proba = float(clf.predict_proba(sim_data)[:, 1][0])
-sim_delay = float(reg.predict(sim_data)[0])
-
+    sim_proba = float(clf.predict_proba(sim_data)[:, 1][0])
+    sim_delay = float(reg.predict(sim_data)[0])
 
     st.subheader("📊 Simulation Results")
     st.write(f"**Risk Probability:** {sim_proba:.1%}")
@@ -95,7 +95,7 @@ if st.sidebar.button("Run Scenario Simulation"):
     st.subheader("📊 Scenario Simulation Results")
     st.write("Here you can compare different 'what-if' cases side by side.")
 
-    # Example scenarios (you can expand later)
+    # Example scenarios
     scenarios = {
         "Base Case": [planned_duration_days, team_size, budget_k, num_change_requests,
                       pct_resource_util, complexity_score, onshore_pct],
@@ -113,13 +113,13 @@ if st.sidebar.button("Run Scenario Simulation"):
             "planned_duration_days", "team_size", "budget_k", "num_change_requests",
             "pct_resource_util", "complexity_score", "onshore_pct"
         ])
-risk_proba = float(clf.predict_proba(df)[:, 1][0])
-delay_est = float(reg.predict(df)[0])
-
+        risk_proba = float(clf.predict_proba(df)[:, 1][0])
+        delay_est = float(reg.predict(df)[0])
         results[label] = (risk_proba, delay_est)
 
     st.write("### Comparison Table")
     comparison = pd.DataFrame(results, index=["Risk Probability", "Expected Delay (days)"]).T
     comparison["Risk Probability"] = comparison["Risk Probability"].apply(lambda x: f"{x:.1%}")
     st.dataframe(comparison)
+
 
