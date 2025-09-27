@@ -251,13 +251,14 @@ if clicked or ("__last__" in st.session_state):
     # ================== Display results ==================
     R = st.session_state["__last__"]
 
-    # Risk banner with adjusted thresholds
-    if R["risk_proba"] > 0.80:
-        st.error(f"⚠️ High risk — {R['risk_proba']:.1%}")
-    elif R["risk_proba"] > 0.65:
-        st.warning(f"🟠 Medium risk — {R['risk_proba']:.1%}")
-    else:
-        st.success(f"✅ Low risk — {R['risk_proba']:.1%}")
+# ================== Risk Category Thresholds ==================
+# Adjusted for demo balance
+if R["risk_proba"] > 0.75:
+    st.error(f"⚠️ High risk — {R['risk_proba']:.1%}")
+elif R["risk_proba"] > 0.55:
+    st.warning(f"🟠 Medium risk — {R['risk_proba']:.1%}")
+else:
+    st.success(f"✅ Low risk — {R['risk_proba']:.1%}")
 
     # Metrics
     c1, c2 = st.columns(2)
