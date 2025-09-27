@@ -253,12 +253,13 @@ if clicked or ("__last__" in st.session_state):
     st.write("🔍 Debug: Raw predicted risk probability =", R["risk_proba"])
 
     # Risk banner (correct thresholds)
-    if R["risk_proba"] > 0.66:
-        st.error(f"⚠️ High risk — {R['risk_proba']:.1%}")
-    elif R["risk_proba"] > 0.33:
-        st.warning(f"🟠 Medium risk — {R['risk_proba']:.1%}")
-    else:
-        st.success(f"✅ Low risk — {R['risk_proba']:.1%}")
+   # Demo-friendly thresholds (force clearer Low/Med/High)
+if R["risk_proba"] > 0.75:
+    st.error(f"⚠️ High risk — {R['risk_proba']:.1%}")
+elif R["risk_proba"] > 0.55:
+    st.warning(f"🟠 Medium risk — {R['risk_proba']:.1%}")
+else:
+    st.success(f"✅ Low risk — {R['risk_proba']:.1%}")
 
     # Metrics
     c1, c2 = st.columns(2)
