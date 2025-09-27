@@ -133,6 +133,16 @@ if st.button("Predict"):
         - Try scenario testing below to see how changes affect risk/delay.
         - Thresholds: Low < 33%, Medium 33–66%, High > 66%.
         """)
+# Build main input dataframe (used throughout app)
+input_df = pd.DataFrame([{
+    'planned_duration_days': planned_duration_days,
+    'team_size': team_size,
+    'budget_k': budget_k,
+    'num_change_requests': num_change_requests,
+    'pct_resource_util': pct_resource_util,
+    'complexity_score': complexity_score,
+    'onshore_pct': onshore_pct
+}])
 
 # ================== Scenario Simulation Panel ==================
 st.header("🔮 Scenario Simulation")
