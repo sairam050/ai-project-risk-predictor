@@ -126,11 +126,25 @@ if st.sidebar.button("Predict"):
 
     # ===== SHAP Explainability =====
     st.subheader("🔍 Why did the model predict this?")
-    explainer = shap.Explainer(risk_model)
+ # ===== SHAP Explainability =====
+st.subheader("🔍 Why did the model predict this?")
+try:
+    explainer = shap.Explainer(risk_model, input_df)
     shap_values = explainer(input_df)
+
     fig_shap, ax = plt.subplots()
-    shap.plots.bar(shap_values, show=False, max_display=7)
+    # use mean absolute values (safe even for 1-row input)
+    shap.summary_plot(shap_values, input_df, plot_type="bar", show=False, max_display=7)
     st.pyplot(fig_shap)
+
+except Exception as e:
+    st.warning("Could not generate SHAP values, falling back to model feature importances.")
+    if hasattr(risk_model, "feature_importances_"):
+        feat = pd.Series(risk_model.feature_importances_, index=input_df.columns).sort_values(ascending=False)
+        st.bar_chart(feat)
+    else:
+        st.info("Model does not provide feature importance information.")
+
 
     # ===== CSV Export =====
     st.download_button("💾 Download Scenario Results (CSV)", comparison.to_csv().encode("utf-8"), "scenario_results.csv", "text/csv")
