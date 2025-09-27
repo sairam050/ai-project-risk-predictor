@@ -38,7 +38,6 @@ def download_if_missing(url, output):
 @st.cache_resource
 def load_models():
     """Download models if missing and load them once (cached)."""
-    # Google Drive direct links
     risk_url  = "https://drive.google.com/uc?id=1EKFSP7P1Tx57NiKGm8G3CA5Viecm-g-f"
     delay_url = "https://drive.google.com/uc?id=1QHdEDIldTQV-ZfoikVXGIF8URT1eE71-"
 
@@ -52,7 +51,6 @@ def load_models():
 
 
 def make_shap_figure(model, X):
-    """Return a SHAP bar plot or None if not supported."""
     try:
         explainer = shap.TreeExplainer(model)
         fig = plt.figure(figsize=(6, 4))
@@ -74,7 +72,6 @@ def make_shap_figure(model, X):
 
 
 def make_importance_figure(model, feature_names):
-    """Return feature importance figure if available, else None."""
     if hasattr(model, "feature_importances_"):
         fig, ax = plt.subplots(figsize=(6, 4))
         imp = pd.Series(model.feature_importances_, index=feature_names).sort_values(ascending=True).tail(10)
@@ -87,7 +84,6 @@ def make_importance_figure(model, feature_names):
 
 
 def fig_to_png_bytes(fig):
-    """Save Matplotlib figure to PNG bytes."""
     buf = BytesIO()
     fig.savefig(buf, format="png", bbox_inches="tight")
     plt.close(fig)
@@ -96,7 +92,6 @@ def fig_to_png_bytes(fig):
 
 
 def generate_pdf(results, candidate_name="Your Name / Org", logo_path=None):
-    """Generate polished PDF with summary, scenario table, charts, and optional SHAP."""
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4)
     styles = getSampleStyleSheet()
@@ -124,8 +119,8 @@ def generate_pdf(results, candidate_name="Your Name / Org", logo_path=None):
     data = [["Scenario", "Risk Probability", "Expected Delay (days)"]]
     row_styles = []
     for i, (label, (prob, delay)) in enumerate(results["results_map"].items(), start=1):
-        if prob < 0.33: bg = colors.lightgreen
-        elif prob < 0.66: bg = colors.lightyellow
+        if prob < 0.35: bg = colors.lightgreen
+        elif prob < 0.80: bg = colors.lightyellow
         else: bg = colors.salmon
         data.append([label, f"{prob:.1%}", f"{delay:.1f}"])
         row_styles.append(("BACKGROUND", (0, i), (-1, i), bg))
@@ -154,7 +149,7 @@ def generate_pdf(results, candidate_name="Your Name / Org", logo_path=None):
             story.append(Paragraph("Explanation unavailable.", styles["Italic"]))
         story.append(Spacer(1, 16))
 
-    story.append(Paragraph("<i>Thresholds: Low < 33%, Medium 33–66%, High > 66%</i>", styles["Italic"]))
+    story.append(Paragraph("<i>Thresholds: Low < 35%, Medium 35–80%, High > 80%</i>", styles["Italic"]))
     story.append(Paragraph("© 2025 Project Risk AI — Demo Report", styles["Normal"]))
 
     doc.build(story)
@@ -241,10 +236,10 @@ if st.sidebar.button("🚀 Predict"):
         if fig_imp is not None:
             shap_png = fig_to_png_bytes(fig_imp)
 
-    # Banner
-    if risk_proba > 0.70:
+    # ================== Risk Banner (Adjusted) ==================
+    if risk_proba > 0.80:
         st.error(f"⚠️ High risk — {risk_proba:.1%}")
-    elif risk_proba > 0.45:
+    elif risk_proba > 0.35:
         st.warning(f"🟠 Medium risk — {risk_proba:.1%}")
     else:
         st.success(f"✅ Low risk — {risk_proba:.1%}")
@@ -254,7 +249,6 @@ if st.sidebar.button("🚀 Predict"):
     with c1: st.metric("Risk Probability", f"{risk_proba:.2%}")
     with c2: st.metric("Expected Delay", f"{delay_pred:.1f} days")
 
-    # Results
     st.subheader("🔮 Scenario Simulation")
     st.dataframe(comparison)
 
