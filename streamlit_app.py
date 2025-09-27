@@ -176,7 +176,7 @@ if st.sidebar.button("Run Scenario Simulation"):
 
     results = {}
     for label, vals in scenarios.items():
-        df = pd.DataFrame([vals], columns=input_data.columns)
+        df = pd.DataFrame([vals], columns=input_df.columns)
         risk_proba = float(risk_model.predict_proba(df)[:, 1][0])
         delay_est = float(delay_model.predict(df)[0])
         results[label] = (risk_proba, delay_est)
