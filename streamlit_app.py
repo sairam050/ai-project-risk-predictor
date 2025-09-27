@@ -1,4 +1,10 @@
 # streamlit_app.py - Final Polished AI Project Risk & Delay Predictor
+from io import BytesIO
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+
+import shap
+import matplotlib.pyplot as plt
 
 import streamlit as st
 import pandas as pd
@@ -12,6 +18,20 @@ from reportlab.lib.pagesizes import A4
 
 # ========== PAGE CONFIG ==========
 st.set_page_config(
+    st.markdown("""
+    <style>
+        .block-container {
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+            max-width: 900px;
+            margin: auto;
+        }
+        .stMetric {
+            text-align: center;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
     page_title="AI Project Risk & Delay Predictor",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -71,6 +91,17 @@ if st.sidebar.button("🔮 Predict"):
 
     st.caption("Thresholds: Low < 33%, Medium 33–66%, High > 66%")
 
+# ====== SHAP Explanation ======
+if st.checkbox("Show Explainability (SHAP)"):
+    explainer = shap.TreeExplainer(risk_model)
+    shap_values = explainer.shap_values(input_df)
+    st.subheader("🔍 Feature Impact on Risk")
+    
+    fig, ax = plt.subplots()
+    shap.summary_plot(shap_values, input_df, show=False)
+    st.pyplot(fig)
+
+
 # ========== SCENARIO SIMULATION ==========
 st.header("🔮 Scenario Simulation")
 st.write("Compare base, optimistic, and pessimistic project assumptions.")
@@ -125,3 +156,38 @@ ax1.legend(loc="upper left")
 ax2.legend(loc="upper right")
 
 st.pyplot(fig)
+
+if st.button("💾 Download Scenarios as CSV"):
+    st.download_button(
+        label="Download CSV",
+        data=comparison.to_csv().encode("utf-8"),
+        file_name="scenario_results.csv",
+        mime="text/csv"
+    )
+
+# ====== Download Report as PDF ======
+def generate_pdf(risk, delay, scenarios_df):
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+    text = c.beginText(50, 750)
+    text.setFont("Helvetica", 12)
+    
+    text.textLine("AI Project Risk & Delay Predictor Report")
+    text.textLine("")
+    text.textLine(f"Risk Probability: {risk:.1%}")
+    text.textLine(f"Expected Delay: {delay:.1f} days")
+    text.textLine("")
+    text.textLine("Scenario Comparison:")
+    
+    for idx, row in scenarios_df.iterrows():
+        text.textLine(f"{idx}: Risk {row['Risk Probability']}, Delay {row['Expected Delay (days)']}")
+    
+    c.drawText(text)
+    c.showPage()
+    c.save()
+    buffer.seek(0)
+    return buffer
+
+if st.button("📥 Download Report as PDF"):
+    pdf_buffer = generate_pdf(proba, delay_pred, comparison)
+    st.download_button("Download PDF", data=pdf_buffer, file_name="project_risk_report.pdf", mime="application/pdf")
