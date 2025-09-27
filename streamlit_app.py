@@ -23,7 +23,8 @@ st.set_page_config(page_title="AI Project Risk & Delay Predictor", layout="wide"
 st.title("📊 AI Project Risk & Delay Predictor")
 st.caption(
     "Enter project details in the left sidebar and click **Predict**. "
-    "You’ll get risk & delay estimates, scenario comparisons, optional explainability, and a downloadable PDF report."
+    "You’ll get risk & delay estimates, scenario comparisons, an explanation (if available), "
+    "and a polished PDF report you can download."
 )
 
 
@@ -36,10 +37,10 @@ def download_if_missing(url, output):
 
 @st.cache_resource
 def load_models():
-    """Download models from Drive if missing, then load."""
-    # Updated Drive links you just gave:
-    risk_url  = "https://drive.google.com/uc?id=1dGE4aFDaBTiqAjLY64-_vFzeTwOjvIji"
-    delay_url = "https://drive.google.com/uc?id=1kyASBwQ53VYm6phdWV5d3s01lgpcxFUl"
+    """Download models if missing and load them once (cached)."""
+    # ✅ Updated Google Drive links
+    risk_url  = "https://drive.google.com/uc?id=10cwK9_OStw2ak6bI5YJ7AXqoV7RRcdZF"
+    delay_url = "https://drive.google.com/uc?id=166yRGOiO31DW6p2TeQN-lodbYo4hJWVG"
 
     download_if_missing(risk_url, "rf_risk_classifier.joblib")
     download_if_missing(delay_url, "rf_delay_regressor.joblib")
@@ -50,7 +51,7 @@ def load_models():
 
 
 def make_shap_figure(model, X):
-    """Return SHAP bar figure or None."""
+    """Return a SHAP bar plot or None if not supported."""
     try:
         explainer = shap.TreeExplainer(model)
         fig = plt.figure(figsize=(6, 4))
@@ -72,7 +73,7 @@ def make_shap_figure(model, X):
 
 
 def make_importance_figure(model, feature_names):
-    """Return bar chart of feature importances if supported."""
+    """Return feature importance figure if available, else None."""
     if hasattr(model, "feature_importances_"):
         fig, ax = plt.subplots(figsize=(6, 4))
         imp = pd.Series(model.feature_importances_, index=feature_names).sort_values(ascending=True).tail(10)
@@ -85,7 +86,7 @@ def make_importance_figure(model, feature_names):
 
 
 def fig_to_png_bytes(fig):
-    """Convert matplotlib figure to PNG bytes."""
+    """Save Matplotlib figure to PNG bytes."""
     buf = BytesIO()
     fig.savefig(buf, format="png", bbox_inches="tight")
     plt.close(fig)
@@ -94,13 +95,12 @@ def fig_to_png_bytes(fig):
 
 
 def generate_pdf(results, candidate_name="Your Name / Org"):
-    """Generate polished PDF report."""
+    """Generate polished PDF with summary, scenario table, charts, and optional SHAP."""
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4)
     styles = getSampleStyleSheet()
     story = []
 
-    # Header
     story.append(Paragraph("📊 AI Project Risk & Delay Predictor — Report", styles["Title"]))
     story.append(Spacer(1, 8))
     story.append(Paragraph(f"<b>Prepared for:</b> {candidate_name}", styles["Normal"]))
@@ -145,7 +145,6 @@ def generate_pdf(results, candidate_name="Your Name / Org"):
             story.append(Paragraph("Explanation unavailable.", styles["Italic"]))
         story.append(Spacer(1, 16))
 
-    # Footer
     story.append(Paragraph("<i>Thresholds: Low < 40%, Medium 40–70%, High > 70%</i>", styles["Italic"]))
     story.append(Paragraph("© 2025 Project Risk AI — Demo Report", styles["Normal"]))
 
@@ -201,9 +200,9 @@ if st.sidebar.button("🚀 Predict"):
 
     results_map = {}
     for label, vals in scenarios.items():
-        df2 = pd.DataFrame([vals], columns=input_df.columns)
-        p = float(risk_model.predict_proba(df2)[:, 1][0])
-        d = float(delay_model.predict(df2)[0])
+        df = pd.DataFrame([vals], columns=input_df.columns)
+        p = float(risk_model.predict_proba(df)[:, 1][0])
+        d = float(delay_model.predict(df)[0])
         results_map[label] = (p, d)
 
     comparison = pd.DataFrame(results_map, index=["Risk Probability", "Expected Delay (days)"]).T
@@ -242,27 +241,22 @@ if st.sidebar.button("🚀 Predict"):
 
     # Metrics
     c1, c2 = st.columns(2)
-    with c1:
-        st.metric("Risk Probability", f"{risk_proba:.2%}")
-    with c2:
-        st.metric("Expected Delay", f"{delay_pred:.1f} days")
+    with c1: st.metric("Risk Probability", f"{risk_proba:.2%}")
+    with c2: st.metric("Expected Delay", f"{delay_pred:.1f} days")
 
-    # Scenario table
+    # Results
     st.subheader("🔮 Scenario Simulation")
     st.dataframe(comparison)
 
-    # Chart
     st.subheader("📈 Scenario Comparison Chart")
     st.image(BytesIO(chart_png), use_container_width=True)
 
-    # Explainability
     st.subheader("🔎 Why did the model predict this?")
     if shap_png:
         st.image(BytesIO(shap_png), caption="Top drivers of risk")
     else:
-        st.info("ℹ️ Explainability not available for this input or model.")
+        st.info("ℹ️ Explainability not available for this model.")
 
-    # PDF download
     st.subheader("📑 Download Report")
     pdf_buf = generate_pdf({
         "risk_proba": risk_proba,
