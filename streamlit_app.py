@@ -38,9 +38,9 @@ def download_if_missing(url, output):
 @st.cache_resource
 def load_models():
     """Download models if missing and load them once (cached)."""
-    # ✅ Updated Google Drive links
-    risk_url  = "https://drive.google.com/uc?id=10cwK9_OStw2ak6bI5YJ7AXqoV7RRcdZF"
-    delay_url = "https://drive.google.com/uc?id=166yRGOiO31DW6p2TeQN-lodbYo4hJWVG"
+    # 🔗 Updated Google Drive direct links (calibrated models)
+    risk_url  = "https://drive.google.com/uc?id=1xKLRlQGKafW4pSr7HuUuTVwbc-F8Ppf8"
+    delay_url = "https://drive.google.com/uc?id=1CrscXUqZL_ZcKn3LM9vV2j9oZ209eEJy"
 
     download_if_missing(risk_url, "rf_risk_classifier.joblib")
     download_if_missing(delay_url, "rf_delay_regressor.joblib")
@@ -94,13 +94,14 @@ def fig_to_png_bytes(fig):
     return buf.getvalue()
 
 
-def generate_pdf(results, candidate_name="Your Name / Org"):
+def generate_pdf(results, candidate_name="Your Name / Org", logo_path=None):
     """Generate polished PDF with summary, scenario table, charts, and optional SHAP."""
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4)
     styles = getSampleStyleSheet()
     story = []
 
+    # Header
     story.append(Paragraph("📊 AI Project Risk & Delay Predictor — Report", styles["Title"]))
     story.append(Spacer(1, 8))
     story.append(Paragraph(f"<b>Prepared for:</b> {candidate_name}", styles["Normal"]))
@@ -145,6 +146,7 @@ def generate_pdf(results, candidate_name="Your Name / Org"):
             story.append(Paragraph("Explanation unavailable.", styles["Italic"]))
         story.append(Spacer(1, 16))
 
+    # Footer
     story.append(Paragraph("<i>Thresholds: Low < 40%, Medium 40–70%, High > 70%</i>", styles["Italic"]))
     story.append(Paragraph("© 2025 Project Risk AI — Demo Report", styles["Normal"]))
 
