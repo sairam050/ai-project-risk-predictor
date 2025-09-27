@@ -217,14 +217,13 @@ if clicked or ("__last__" in st.session_state):
 
     R = st.session_state["__last__"]
 
-   # 🔧 Tweaked thresholds for clearer demo screenshots
+# 🔧 Tweaked thresholds for clearer demo screenshots
 if R["risk_proba"] > 0.85:
     st.error(f"⚠️ High risk — {R['risk_proba']:.1%}")
 elif R["risk_proba"] > 0.65:
     st.warning(f"🟠 Medium risk — {R['risk_proba']:.1%}")
 else:
     st.success(f"✅ Low risk — {R['risk_proba']:.1%}")
-
 
     st.metric("Risk Probability", f"{R['risk_proba']:.2%}")
     st.metric("Expected Delay", f"{R['delay_pred']:.1f} days")
