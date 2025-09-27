@@ -86,3 +86,38 @@ if st.button("Run Simulation"):
         st.warning("⚠️ Projected delay exceeds 15% of planned duration.")
     else:
         st.success("✅ Projected delay looks manageable.")
+
+# ========== Step 2: Scenario Simulation Panel ==========
+st.sidebar.header("🔮 Scenario Simulation")
+
+if st.sidebar.button("Run Scenario Simulation"):
+    st.subheader("📊 Scenario Simulation Results")
+    st.write("Here you can compare different 'what-if' cases side by side.")
+
+    # Example scenarios (you can expand later)
+    scenarios = {
+        "Base Case": [planned_duration_days, team_size, budget_k, num_change_requests,
+                      pct_resource_util, complexity_score, onshore_pct],
+        "Optimistic": [planned_duration_days*0.9, team_size+2, budget_k*1.2, 
+                       max(0, num_change_requests-1), pct_resource_util*0.9,
+                       complexity_score*0.8, onshore_pct+0.1],
+        "Pessimistic": [planned_duration_days*1.2, max(2, team_size-2), budget_k*0.8,
+                        num_change_requests+2, pct_resource_util*1.1,
+                        complexity_score*1.2, max(0, onshore_pct-0.1)]
+    }
+
+    results = {}
+    for label, vals in scenarios.items():
+        df = pd.DataFrame([vals], columns=[
+            "planned_duration_days", "team_size", "budget_k", "num_change_requests",
+            "pct_resource_util", "complexity_score", "onshore_pct"
+        ])
+        risk_proba = float(risk_model.predict_proba(df)[:, 1][0])
+        delay_est = float(delay_model.predict(df)[0])
+        results[label] = (risk_proba, delay_est)
+
+    st.write("### Comparison Table")
+    comparison = pd.DataFrame(results, index=["Risk Probability", "Expected Delay (days)"]).T
+    comparison["Risk Probability"] = comparison["Risk Probability"].apply(lambda x: f"{x:.1%}")
+    st.dataframe(comparison)
+
