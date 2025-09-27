@@ -61,7 +61,7 @@ Built with **Streamlit**, **scikit-learn**, and **SHAP**, the tool allows users 
 ## 🌐 Live Demo  
 
 The app is deployed on **Streamlit Cloud**:  
-👉 [AI Project Risk & Delay Predictor](https://ai-project-risk-predictor.streamlit.app)  
+👉 [AI Project Risk & Delay Predictor](https://ai-project-risk-predictor-p2yc7gde6kf8khzpeayn7h.streamlit.app/)  
 
 ---
 
