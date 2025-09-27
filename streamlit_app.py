@@ -241,13 +241,13 @@ if st.sidebar.button("🚀 Predict"):
         if fig_imp is not None:
             shap_png = fig_to_png_bytes(fig_imp)
 
-    # Risk banner with calibrated thresholds
-    if risk_proba > 0.75:
-        st.error(f"⚠️ High risk — {risk_proba:.1%}")
-    elif risk_proba > 0.40:
-        st.warning(f"🟠 Medium risk — {risk_proba:.1%}")
-    else:
-        st.success(f"✅ Low risk — {risk_proba:.1%}")
+# Banner (Adjusted thresholds for demo clarity)
+if risk_proba > 0.85:
+    st.error(f"⚠️ High risk — {risk_proba:.1%}")
+elif risk_proba > 0.50:
+    st.warning(f"🟠 Medium risk — {risk_proba:.1%}")
+else:
+    st.success(f"✅ Low risk — {risk_proba:.1%}")
 
     # Metrics
     c1, c2 = st.columns(2)
