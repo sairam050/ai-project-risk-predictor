@@ -1,33 +1,206 @@
+# ================== Imports ==================
 import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
 import matplotlib.pyplot as plt
-import shap
 from io import BytesIO
 import datetime
+import shap
+
+# PDF (ReportLab)
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 
-# ================= App Config =================
+
+# ================== Page Config ==================
 st.set_page_config(page_title="AI Project Risk & Delay Predictor", layout="wide")
 
-# Load models
-risk_model = joblib.load("rf_risk_classifier.joblib")
-delay_model = joblib.load("rf_delay_regressor.joblib")
+# Always show the title & short instruction (no blank main screen)
+st.title("📊 AI Project Risk & Delay Predictor")
+st.caption("Enter project details on the left and click **Predict** to see risk, delays, scenarios, explainability, and download a polished PDF report.")
 
+
+# ================== Helpers ==================
+@st.cache_resource
+def load_models():
+    """Load models once and cache them for faster reruns."""
+    risk_model = joblib.load("rf_risk_classifier.joblib")
+    delay_model = joblib.load("rf_delay_regressor.joblib")
+    return risk_model, delay_model
+
+
+def make_shap_figure(model, X):
+    """
+    Return a matplotlib Figure with a SHAP bar/summary plot if possible.
+    Compatible with newer and older SHAP APIs. Returns None on failure.
+    """
+    try:
+        explainer = shap.TreeExplainer(model)
+        fig = plt.figure(figsize=(6, 4))
+
+        try:
+            # Newer SHAP (returns Explanation)
+            explanation = explainer(X)
+            shap.plots.bar(explanation, show=False, max_display=7)
+        except Exception:
+            # Older SHAP (returns arrays)
+            shap_values = explainer.shap_values(X)
+            # Try summary bar
+            try:
+                shap.summary_plot(shap_values, X, plot_type="bar", show=False, max_display=7)
+            except Exception:
+                # Rough fallback: mean(|shap|) per feature
+                vals = np.abs(shap_values).mean(axis=0)
+                order = np.argsort(vals)[::-1][:7]
+                ax = plt.gca()
+                ax.barh(np.array(X.columns)[order][::-1], vals[order][::-1])
+                ax.set_title("SHAP (approx.)")
+                ax.set_xlabel("Mean |SHAP value|")
+                plt.tight_layout()
+
+        return fig
+    except Exception:
+        return None
+
+
+def make_importance_figure(model, feature_names):
+    """
+    Return a matplotlib Figure with feature importances if available,
+    otherwise None.
+    """
+    if hasattr(model, "feature_importances_"):
+        fig, ax = plt.subplots(figsize=(6, 4))
+        imp = pd.Series(model.feature_importances_, index=feature_names).sort_values(ascending=True).tail(10)
+        ax.barh(imp.index, imp.values)
+        ax.set_title("Feature Importance (model)")
+        ax.set_xlabel("Importance")
+        plt.tight_layout()
+        return fig
+    return None
+
+
+def figure_to_png_bytes(fig):
+    """Save a Matplotlib Figure to PNG bytes."""
+    buf = BytesIO()
+    fig.savefig(buf, format="png", bbox_inches="tight")
+    plt.close(fig)
+    buf.seek(0)
+    return buf.getvalue()
+
+
+def generate_pdf(results, candidate="Sairam Thonuunuri", logo_path=None):
+    """
+    Build a polished PDF in-memory with ReportLab.
+    - results dict must contain:
+      risk_proba(float), delay_pred(float), results_map(dict label -> (prob, delay)),
+      chart_png(bytes), shap_png(bytes or None)
+    """
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
+    styles = getSampleStyleSheet()
+    story = []
+
+    # ===== Header =====
+    if logo_path:
+        try:
+            story.append(Image(logo_path, width=80, height=80))
+            story.append(Spacer(1, 10))
+        except Exception:
+            pass
+
+    story.append(Paragraph("📊 AI Project Risk & Delay Predictor — Report", styles["Title"]))
+    story.append(Spacer(1, 8))
+    story.append(Paragraph(f"<b>Prepared for:</b> {candidate}", styles["Normal"]))
+    story.append(Paragraph(f"<b>Generated on:</b> {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles["Normal"]))
+    story.append(Spacer(1, 16))
+
+    # ===== Summary =====
+    story.append(Paragraph("<b>🔹 Summary</b>", styles["Heading2"]))
+    story.append(Spacer(1, 6))
+    story.append(Paragraph(f"<b>Risk Probability:</b> {results['risk_proba']:.1%}", styles["Normal"]))
+    story.append(Paragraph(f"<b>Expected Delay:</b> {results['delay_pred']:.1f} days", styles["Normal"]))
+    story.append(Spacer(1, 16))
+
+    # ===== Scenario Table (color-coded rows) =====
+    story.append(Paragraph("<b>📊 Scenario Comparison</b>", styles["Heading2"]))
+    story.append(Spacer(1, 6))
+
+    data = [["Scenario", "Risk Probability", "Expected Delay (days)"]]
+    row_styles = []
+    # Use results_map directly to avoid any % parsing ambiguity
+    for i, (label, (prob, delay)) in enumerate(results["results_map"].items(), start=1):
+        # Choose background by risk level
+        if prob < 0.33:
+            bg = colors.lightgreen
+        elif prob < 0.66:
+            bg = colors.lightyellow
+        else:
+            bg = colors.salmon
+
+        data.append([label, f"{prob:.1%}", f"{delay:.1f}"])
+        row_styles.append(("BACKGROUND", (0, i), (-1, i), bg))
+
+    tab = Table(data, colWidths=[150, 120, 150])
+    tab.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.6, colors.black),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+    ] + row_styles))
+    story.append(tab)
+    story.append(Spacer(1, 18))
+
+    # ===== Scenario Chart =====
+    story.append(Paragraph("<b>📈 Scenario Comparison Chart</b>", styles["Heading2"]))
+    story.append(Spacer(1, 6))
+    try:
+        story.append(Image(BytesIO(results["chart_png"]), width=400, height=250))
+    except Exception:
+        story.append(Paragraph("Chart unavailable.", styles["Italic"]))
+    story.append(Spacer(1, 18))
+
+    # ===== SHAP / Feature Importance =====
+    if results.get("shap_png"):
+        story.append(Paragraph("<b>🔎 Feature Importance / SHAP</b>", styles["Heading2"]))
+        story.append(Spacer(1, 6))
+        try:
+            story.append(Image(BytesIO(results["shap_png"]), width=400, height=250))
+        except Exception:
+            story.append(Paragraph("Explanation image unavailable.", styles["Italic"]))
+        story.append(Spacer(1, 18))
+
+    # ===== Footer =====
+    story.append(Paragraph("<i>Thresholds: Low < 33%, Medium 33–66%, High > 66%</i>", styles["Italic"]))
+    story.append(Spacer(1, 6))
+    story.append(Paragraph("© 2025 Project Risk AI — Demo Report", styles["Normal"]))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+
+# ================== Load Models ==================
+try:
+    risk_model, delay_model = load_models()
+except Exception:
+    st.error("❌ Could not load models. Make sure **rf_risk_classifier.joblib** and **rf_delay_regressor.joblib** are in the app folder.")
+    st.stop()
+
+
+# ================== Sidebar Inputs ==================
 st.sidebar.header("📂 Project Inputs")
 planned_duration_days = st.sidebar.number_input("Planned Duration (days)", 30, 1000, 180)
-team_size = st.sidebar.number_input("Team Size", 2, 100, 10)
-budget_k = st.sidebar.number_input("Budget (in $1000s)", 100, 10000, 500)
-num_change_requests = st.sidebar.number_input("Number of Change Requests", 0, 20, 1)
-pct_resource_util = st.sidebar.slider("Resource Utilization (%)", 0.1, 2.0, 1.0)
-complexity_score = st.sidebar.slider("Complexity Score", 0.0, 1.0, 0.5)
-onshore_pct = st.sidebar.slider("Onshore %", 0.0, 1.0, 0.5)
+team_size            = st.sidebar.number_input("Team Size", 2, 100, 10)
+budget_k             = st.sidebar.number_input("Budget (in $1000s)", 100, 10000, 500)
+num_change_requests  = st.sidebar.number_input("Change Requests", 0, 20, 1)
+pct_resource_util    = st.sidebar.slider("Resource Utilization (%)", 0.1, 2.0, 1.0)
+complexity_score     = st.sidebar.slider("Complexity Score", 0.0, 1.0, 0.5)
+onshore_pct          = st.sidebar.slider("Onshore %", 0.0, 1.0, 0.5)
 
-# Build input dataframe
 input_df = pd.DataFrame([[
     planned_duration_days, team_size, budget_k, num_change_requests,
     pct_resource_util, complexity_score, onshore_pct
@@ -36,123 +209,118 @@ input_df = pd.DataFrame([[
     "pct_resource_util", "complexity_score", "onshore_pct"
 ])
 
-# ================= Prediction =================
-if st.sidebar.button("🚀 Predict"):
-    st.title("📊 AI Project Risk & Delay Predictor")
-    st.write("Enter project details, test scenarios, and download polished reports instantly.")
 
-    # ---- Risk Prediction ----
-    risk_proba = float(risk_model.predict_proba(input_df)[:, 1][0])
-    delay_pred = float(delay_model.predict(input_df)[0])
+# ================== Predict & Render ==================
+clicked = st.sidebar.button("🚀 Predict")
 
-    if risk_proba > 0.66:
-        st.error(f"⚠️ High Risk — {risk_proba:.1%}")
-    elif risk_proba > 0.33:
-        st.warning(f"🟠 Medium Risk — {risk_proba:.1%}")
+# If clicked OR we already have a previous result, render results.
+if clicked or ("__last__" in st.session_state):
+
+    # Recompute only when clicked; otherwise reuse last results for stability
+    if clicked:
+        # -------- Core predictions --------
+        risk_proba = float(risk_model.predict_proba(input_df)[:, 1][0])
+        delay_pred = float(delay_model.predict(input_df)[0])
+
+        # -------- Scenarios --------
+        scenarios = {
+            "Base Case": [planned_duration_days, team_size, budget_k, num_change_requests,
+                          pct_resource_util, complexity_score, onshore_pct],
+            "Optimistic": [planned_duration_days * 0.90, team_size + 2, budget_k * 1.2,
+                           max(0, num_change_requests - 1), pct_resource_util * 0.90,
+                           complexity_score * 0.80, min(1.0, onshore_pct + 0.10)],
+            "Pessimistic": [planned_duration_days * 1.20, max(2, team_size - 2), budget_k * 0.80,
+                            num_change_requests + 2, pct_resource_util * 1.10,
+                            min(1.0, complexity_score * 1.20), max(0.0, onshore_pct - 0.10)]
+        }
+
+        results_map = {}
+        for label, vals in scenarios.items():
+            df = pd.DataFrame([vals], columns=input_df.columns)
+            p = float(risk_model.predict_proba(df)[:, 1][0])
+            d = float(delay_model.predict(df)[0])
+            results_map[label] = (p, d)
+
+        # Comparison DF for on-screen table
+        comparison = pd.DataFrame(results_map, index=["Risk Probability", "Expected Delay (days)"]).T
+        comparison["Risk Probability"] = comparison["Risk Probability"].apply(lambda v: f"{v:.1%}")
+
+        # -------- Scenario chart --------
+        fig_chart, ax1 = plt.subplots(figsize=(7, 4))
+        labels = list(results_map.keys())
+        risk_vals = [results_map[k][0] for k in labels]
+        delay_vals = [results_map[k][1] for k in labels]
+        ax1.bar(labels, risk_vals, color="salmon", alpha=0.75)
+        ax1.set_ylabel("Risk Probability", color="red")
+        ax2 = ax1.twinx()
+        ax2.plot(labels, delay_vals, marker="o", color="blue")
+        ax2.set_ylabel("Expected Delay (days)", color="blue")
+        ax1.set_title("Scenario Comparison: Risk vs Delay")
+        chart_png = figure_to_png_bytes(fig_chart)
+
+        # -------- SHAP / feature-importance figure --------
+        fig_shap = make_shap_figure(risk_model, input_df)
+        shap_png = None
+        if fig_shap is None:
+            fig_imp = make_importance_figure(risk_model, input_df.columns)
+            if fig_imp is not None:
+                shap_png = figure_to_png_bytes(fig_imp)
+        else:
+            shap_png = figure_to_png_bytes(fig_shap)
+
+        # Save to session (so results persist after any small UI change)
+        st.session_state["__last__"] = {
+            "risk_proba": risk_proba,
+            "delay_pred": delay_pred,
+            "comparison": comparison,
+            "results_map": results_map,
+            "chart_png": chart_png,
+            "shap_png": shap_png
+        }
+
+    # ---------- Read from session & display ----------
+    R = st.session_state["__last__"]
+
+    # Risk banner
+    if R["risk_proba"] > 0.66:
+        st.error(f"⚠️ High risk — {R['risk_proba']:.1%}")
+    elif R["risk_proba"] > 0.33:
+        st.warning(f"🟠 Medium risk — {R['risk_proba']:.1%}")
     else:
-        st.success(f"✅ Low Risk — {risk_proba:.1%}")
+        st.success(f"✅ Low risk — {R['risk_proba']:.1%}")
 
-    st.metric("Risk Probability", f"{risk_proba:.2%}")
-    st.metric("Expected Delay", f"{delay_pred:.1f} days")
+    # Quick metrics
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Risk Probability", f"{R['risk_proba']:.2%}")
+    with col2:
+        st.metric("Expected Delay", f"{R['delay_pred']:.1f} days")
 
-    if delay_pred > planned_duration_days * 0.15:
-        st.info("Projected delay > 15% of planned duration — consider mitigation actions.")
-    else:
-        st.info("Projected delay looks within acceptable range.")
-
-    # ---- Scenario Simulation ----
+    # Scenario table
     st.subheader("🔮 Scenario Simulation")
-    scenarios = {
-        "Base Case": [planned_duration_days, team_size, budget_k, num_change_requests,
-                      pct_resource_util, complexity_score, onshore_pct],
-        "Optimistic": [planned_duration_days*0.9, team_size+2, budget_k*1.2,
-                       max(0, num_change_requests-1), pct_resource_util*0.9,
-                       complexity_score*0.8, onshore_pct+0.1],
-        "Pessimistic": [planned_duration_days*1.2, max(2, team_size-2), budget_k*0.8,
-                        num_change_requests+2, pct_resource_util*1.1,
-                        complexity_score*1.2, max(0, onshore_pct-0.1)]
-    }
+    st.dataframe(R["comparison"])
 
-    results = {}
-    for label, vals in scenarios.items():
-        df = pd.DataFrame([vals], columns=input_df.columns)
-        p = float(risk_model.predict_proba(df)[:, 1][0])
-        d = float(delay_model.predict(df)[0])
-        results[label] = (p, d)
+    # Chart (from bytes)
+    st.subheader("📈 Scenario Comparison Chart")
+    st.image(BytesIO(R["chart_png"]), use_container_width=True)
 
-    comparison = pd.DataFrame(results, index=["Risk Probability", "Expected Delay (days)"]).T
-    comparison["Risk Probability"] = comparison["Risk Probability"].apply(lambda x: f"{x:.1%}")
-    st.table(comparison)
+    # Explainability (never blank—show SHAP or feature importance or info)
+    st.subheader("🔎 Why did the model predict this?")
+    if R["shap_png"] is not None:
+        st.image(BytesIO(R["shap_png"]), caption="Top drivers of risk")
+    else:
+        st.info("ℹ️ Explainability not available for this model; SHAP and feature importances were unavailable.")
 
-    # ---- Scenario Chart ----
-    st.subheader("📊 Scenario Comparison Chart")
-    fig, ax1 = plt.subplots(figsize=(7, 4))
-    labels = list(results.keys())
-    risk_vals = [results[l][0] for l in labels]
-    delay_vals = [results[l][1] for l in labels]
-
-    ax1.bar(labels, risk_vals, color="salmon", alpha=0.7, label="Risk (%)")
-    ax1.set_ylabel("Risk Probability (%)", color="red")
-    ax2 = ax1.twinx()
-    ax2.bar(labels, delay_vals, color="skyblue", alpha=0.6, label="Delay (days)")
-    ax2.set_ylabel("Expected Delay (days)", color="blue")
-    st.pyplot(fig)
-
-    # Save chart for PDF
-    chart_buf = BytesIO()
-    fig.savefig(chart_buf, format="png")
-    chart_buf.seek(0)
-
-    # ---- SHAP Explainability ----
-    st.subheader("🔍 Why did the model predict this?")
-    try:
-        explainer = shap.TreeExplainer(risk_model)
-        shap_values = explainer.shap_values(input_df)
-        shap_fig = plt.figure()
-        shap.summary_plot(shap_values, input_df, show=False)
-        st.pyplot(shap_fig)
-
-        shap_buf = BytesIO()
-        shap_fig.savefig(shap_buf, format="png")
-        shap_buf.seek(0)
-    except Exception:
-        shap_buf = None
-        st.info("ℹ️ SHAP explanation not available for this model.")
-
-    # ---- PDF Report ----
+    # PDF download (in main area, right below content)
     st.subheader("📑 Download Report")
+    pdf_buf = generate_pdf(R, candidate="Sairam Thonuunuri", logo_path=None)
+    st.download_button(
+        "⬇️ Download PDF Report",
+        data=pdf_buf,
+        file_name="risk_delay_report.pdf",
+        mime="application/pdf"
+    )
 
-    def generate_pdf():
-        buffer = BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4)
-        styles = getSampleStyleSheet()
-        story = []
-
-        story.append(Paragraph("📊 AI Project Risk & Delay Predictor — Report", styles["Title"]))
-        story.append(Spacer(1, 12))
-        story.append(Paragraph(f"Risk Probability: {risk_proba:.1%}", styles["Normal"]))
-        story.append(Paragraph(f"Expected Delay: {delay_pred:.1f} days", styles["Normal"]))
-        story.append(Spacer(1, 12))
-
-        data = [["Scenario", "Risk Probability", "Expected Delay (days)"]]
-        for k, v in results.items():
-            data.append([k, f"{v[0]:.1%}", f"{v[1]:.1f}"])
-        story.append(Table(data))
-        story.append(Spacer(1, 12))
-        story.append(Paragraph("Thresholds: Low < 33%, Medium 33–66%, High > 66%", styles["Italic"]))
-
-        # Add chart
-        story.append(Image(chart_buf, width=400, height=250))
-
-        # Add SHAP if available
-        if shap_buf:
-            story.append(Paragraph("Feature Importance / SHAP Explanation", styles["Heading2"]))
-            story.append(Image(shap_buf, width=400, height=250))
-
-        doc.build(story)
-        buffer.seek(0)
-        return buffer
-
-    pdf_buffer = generate_pdf()
-    st.download_button("📥 Download PDF Report", data=pdf_buffer,
-                       file_name="risk_delay_report.pdf", mime="application/pdf")
+else:
+    # No prediction yet — show a friendly nudge
+    st.info("Adjust inputs on the left and click **Predict** to generate results.")
