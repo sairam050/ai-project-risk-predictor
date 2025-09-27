@@ -23,7 +23,8 @@ st.set_page_config(page_title="AI Project Risk & Delay Predictor", layout="wide"
 st.title("📊 AI Project Risk & Delay Predictor")
 st.caption(
     "Enter project details in the left sidebar and click **Predict**. "
-    "You’ll get risk & delay estimates, scenario comparisons, explanation (if available), and a downloadable PDF report."
+    "You’ll get calibrated risk & delay estimates, scenario comparisons, SHAP explanations, "
+    "and a polished PDF report you can download."
 )
 
 
@@ -37,16 +38,14 @@ def download_if_missing(url, output):
 @st.cache_resource
 def load_models():
     """Download models if missing and load them once (cached)."""
-    # >>> YOUR LATEST LINKS <<<
-    # Risk (classifier)  : 14179vBnQIewcSTR2Csyx1t3jKN7lmsWk
-    # Delay (regressor)  : 1qhqow2uag7sg2eHeMdFTsI9OpRVSIklR
-    risk_url  = "https://drive.google.com/uc?id=14179vBnQIewcSTR2Csyx1t3jKN7lmsWk"
-    delay_url = "https://drive.google.com/uc?id=1qhqow2uag7sg2eHeMdFTsI9OpRVSIklR"
+    # ✅ Updated Google Drive direct links
+    risk_url  = "https://drive.google.com/uc?id=1XU2oyHd7v-a2lpErfzPO2VTBRqIElOBy"
+    delay_url = "https://drive.google.com/uc?id=1OSaHU9kQqQatx9wDhEVKEKLDuhuo2DmP"
 
-    download_if_missing(risk_url,  "rf_risk_classifier.joblib")
+    download_if_missing(risk_url, "rf_risk_classifier.joblib")
     download_if_missing(delay_url, "rf_delay_regressor.joblib")
 
-    risk_model  = joblib.load("rf_risk_classifier.joblib")
+    risk_model = joblib.load("rf_risk_classifier.joblib")
     delay_model = joblib.load("rf_delay_regressor.joblib")
     return risk_model, delay_model
 
@@ -95,7 +94,7 @@ def fig_to_png_bytes(fig):
     return buf.getvalue()
 
 
-def generate_pdf(results, candidate_name="Recruiter Demo", logo_path=None):
+def generate_pdf(results, candidate_name="Your Name / Org", logo_path=None):
     """Generate polished PDF with summary, scenario table, charts, and optional SHAP."""
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4)
@@ -138,7 +137,7 @@ def generate_pdf(results, candidate_name="Recruiter Demo", logo_path=None):
         story.append(Paragraph("Chart unavailable.", styles["Italic"]))
     story.append(Spacer(1, 16))
 
-    # SHAP / Importance (optional)
+    # SHAP / Importance
     if results.get("shap_png"):
         story.append(Paragraph("<b>🔎 Feature Importance / SHAP</b>", styles["Heading2"]))
         try:
@@ -187,11 +186,9 @@ input_df = pd.DataFrame([[
 
 # ================== Predict & Render ==================
 if st.sidebar.button("🚀 Predict"):
-    # Predictions
     risk_proba = float(risk_model.predict_proba(input_df)[:, 1][0])
     delay_pred = float(delay_model.predict(input_df)[0])
 
-    # Scenarios
     scenarios = {
         "Base Case": [planned_duration_days, team_size, budget_k, num_change_requests,
                       pct_resource_util, complexity_score, onshore_pct],
@@ -218,29 +215,25 @@ if st.sidebar.button("🚀 Predict"):
     labels = list(results_map.keys())
     risk_vals = [results_map[k][0] for k in labels]
     delay_vals = [results_map[k][1] for k in labels]
-    ax1.bar(labels, risk_vals, alpha=0.75)
-    ax1.set_ylabel("Risk Probability")
+    ax1.bar(labels, risk_vals, color="salmon", alpha=0.75)
+    ax1.set_ylabel("Risk Probability", color="red")
     ax2 = ax1.twinx()
-    ax2.plot(labels, delay_vals, marker="o")
-    ax2.set_ylabel("Expected Delay (days)")
+    ax2.plot(labels, delay_vals, marker="o", color="blue")
+    ax2.set_ylabel("Expected Delay (days)", color="blue")
     ax1.set_title("Scenario Comparison: Risk vs Delay")
-    plt.tight_layout()
     chart_png = fig_to_png_bytes(fig_chart)
 
-    # SHAP / importance (optional)
+    # SHAP / importance
     shap_png = None
-    try:
-        fig_shap = make_shap_figure(risk_model, input_df)
-        if fig_shap is not None:
-            shap_png = fig_to_png_bytes(fig_shap)
-        else:
-            fig_imp = make_importance_figure(risk_model, input_df.columns)
-            if fig_imp is not None:
-                shap_png = fig_to_png_bytes(fig_imp)
-    except Exception:
-        shap_png = None
+    fig_shap = make_shap_figure(risk_model, input_df)
+    if fig_shap is not None:
+        shap_png = fig_to_png_bytes(fig_shap)
+    else:
+        fig_imp = make_importance_figure(risk_model, input_df.columns)
+        if fig_imp is not None:
+            shap_png = fig_to_png_bytes(fig_imp)
 
-    # Risk banner (tuned thresholds)
+    # Risk banner with calibrated thresholds
     if risk_proba > 0.70:
         st.error(f"⚠️ High risk — {risk_proba:.1%}")
     elif risk_proba > 0.40:
@@ -264,10 +257,8 @@ if st.sidebar.button("🚀 Predict"):
     if shap_png:
         st.image(BytesIO(shap_png), caption="Top drivers of risk")
     else:
-        st.info("ℹ️ Explainability not available for this model or this input.")
+        st.info("ℹ️ Explainability not available for this model.")
 
-
-    # PDF
     st.subheader("📑 Download Report")
     pdf_buf = generate_pdf({
         "risk_proba": risk_proba,
