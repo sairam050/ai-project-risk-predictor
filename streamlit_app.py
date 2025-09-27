@@ -18,7 +18,6 @@ from reportlab.lib import colors
 # ================== Page Config ==================
 st.set_page_config(page_title="AI Project Risk & Delay Predictor", layout="wide")
 
-# Always show the title & short instruction (no blank main screen)
 st.title("📊 AI Project Risk & Delay Predictor")
 st.caption(
     "Enter project details in the left sidebar and click **Predict**. "
@@ -30,18 +29,15 @@ st.caption(
 # ================== Helpers ==================
 @st.cache_resource
 def load_models():
-    """Load models once and cache them for faster reruns."""
     risk_model = joblib.load("rf_risk_classifier.joblib")
     delay_model = joblib.load("rf_delay_regressor.joblib")
     return risk_model, delay_model
 
 
 def make_shap_figure(model, X):
-    """Return a matplotlib Figure with SHAP bar/summary plot if possible. Returns None on failure."""
     try:
         explainer = shap.TreeExplainer(model)
         fig = plt.figure(figsize=(6, 4))
-
         try:
             explanation = explainer(X)
             shap.plots.bar(explanation, show=False, max_display=7)
@@ -57,14 +53,12 @@ def make_shap_figure(model, X):
                 ax.set_title("SHAP (approx.)")
                 ax.set_xlabel("Mean |SHAP value|")
                 plt.tight_layout()
-
         return fig
     except Exception:
         return None
 
 
 def make_importance_figure(model, feature_names):
-    """Return a matplotlib Figure with feature importances if available."""
     if hasattr(model, "feature_importances_"):
         fig, ax = plt.subplots(figsize=(6, 4))
         imp = pd.Series(model.feature_importances_, index=feature_names).sort_values(ascending=True).tail(10)
@@ -77,7 +71,6 @@ def make_importance_figure(model, feature_names):
 
 
 def fig_to_png_bytes(fig):
-    """Save a Matplotlib Figure to PNG bytes."""
     buf = BytesIO()
     fig.savefig(buf, format="png", bbox_inches="tight")
     plt.close(fig)
@@ -86,7 +79,6 @@ def fig_to_png_bytes(fig):
 
 
 def generate_pdf(results, candidate_name="Your Name / Org", logo_path=None):
-    """Build a polished PDF in-memory with ReportLab."""
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4)
     styles = getSampleStyleSheet()
@@ -201,11 +193,11 @@ clicked = st.sidebar.button("🚀 Predict")
 if clicked or ("__last__" in st.session_state):
 
     if clicked:
-        # -------- Core predictions --------
+        # Predictions
         risk_proba = float(risk_model.predict_proba(input_df)[:, 1][0])
         delay_pred = float(delay_model.predict(input_df)[0])
 
-        # -------- Scenarios --------
+        # Scenarios
         scenarios = {
             "Base Case": [planned_duration_days, team_size, budget_k, num_change_requests,
                           pct_resource_util, complexity_score, onshore_pct],
@@ -227,7 +219,7 @@ if clicked or ("__last__" in st.session_state):
         comparison = pd.DataFrame(results_map, index=["Risk Probability", "Expected Delay (days)"]).T
         comparison["Risk Probability"] = comparison["Risk Probability"].apply(lambda v: f"{v:.1%}")
 
-        # ---------- Scenario chart ----------
+        # Chart
         fig_chart, ax1 = plt.subplots(figsize=(7, 4))
         labels = list(results_map.keys())
         risk_vals = [results_map[k][0] for k in labels]
@@ -240,7 +232,7 @@ if clicked or ("__last__" in st.session_state):
         ax1.set_title("Scenario Comparison: Risk vs Delay")
         chart_png = fig_to_png_bytes(fig_chart)
 
-        # ---------- SHAP / Feature Importance ----------
+        # Explainability
         shap_png = None
         fig_shap = make_shap_figure(risk_model, input_df)
         if fig_shap is not None:
@@ -259,7 +251,7 @@ if clicked or ("__last__" in st.session_state):
             "shap_png": shap_png
         }
 
-    # ---------- Display Results ----------
+    # Display results
     R = st.session_state["__last__"]
 
     # Risk banner
@@ -277,7 +269,7 @@ if clicked or ("__last__" in st.session_state):
     with c2:
         st.metric("Expected Delay", f"{R['delay_pred']:.1f} days")
 
-    # Scenario comparison
+    # Scenario results
     st.subheader("🔮 Scenario Simulation")
     st.dataframe(R["comparison"])
 
@@ -286,7 +278,7 @@ if clicked or ("__last__" in st.session_state):
 
     # Explainability (gap-free)
     st.subheader("🔎 Why did the model predict this?")
-    if R.get("shap_png") is not None and len(R["shap_png"]) > 0:
+    if R.get("shap_png") and len(R["shap_png"]) > 50:
         st.image(BytesIO(R["shap_png"]), caption="Top drivers of risk")
     else:
         st.info("ℹ️ Explainability not available for this model (SHAP/feature importances unavailable).")
