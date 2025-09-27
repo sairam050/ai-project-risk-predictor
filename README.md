@@ -86,6 +86,6 @@ A generated PDF report includes:
 ## 👤 Author  
 
 **Sairam Thonupunuri**  
-- 📧 [Your Email]  
-- 🌐 [LinkedIn Profile]  
+- 📧 sairamthonupunuri05@gmail.com 
+- 🌐 Sairam Thonupunuri  
 - 💻 [Portfolio or GitHub]  
