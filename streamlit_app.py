@@ -18,7 +18,7 @@ from reportlab.lib import colors
 # ================== Page Config ==================
 st.set_page_config(page_title="AI Project Risk & Delay Predictor", layout="wide")
 
-# Title & instruction
+# Always show the title & short instruction
 st.title("📊 AI Project Risk & Delay Predictor")
 st.caption(
     "Enter project details in the left sidebar and click **Predict**. "
@@ -149,7 +149,7 @@ def generate_pdf(results, candidate_name="Your Name / Org", logo_path=None):
         story.append(Spacer(1, 18))
 
     # Footer
-    story.append(Paragraph("<i>Thresholds: Low < 33%, Medium 33–66%, High > 66%</i>", styles["Italic"]))
+    story.append(Paragraph("<i>Thresholds: Low < 55%, Medium 55–75%, High > 75%</i>", styles["Italic"]))
     story.append(Spacer(1, 6))
     story.append(Paragraph("© 2025 Project Risk AI — Demo Report", styles["Normal"]))
 
@@ -249,39 +249,30 @@ if clicked or ("__last__" in st.session_state):
     # Display results
     R = st.session_state["__last__"]
 
-    # Debug: always print raw probability
-    st.write("🔍 Debug: Raw predicted risk probability =", R["risk_proba"])
+    # Demo-friendly thresholds
+    if R["risk_proba"] > 0.75:
+        st.error(f"⚠️ High risk — {R['risk_proba']:.1%}")
+    elif R["risk_proba"] > 0.55:
+        st.warning(f"🟠 Medium risk — {R['risk_proba']:.1%}")
+    else:
+        st.success(f"✅ Low risk — {R['risk_proba']:.1%}")
 
-    # Risk banner (correct thresholds)
-   # Demo-friendly thresholds (force clearer Low/Med/High)
-if R["risk_proba"] > 0.75:
-    st.error(f"⚠️ High risk — {R['risk_proba']:.1%}")
-elif R["risk_proba"] > 0.55:
-    st.warning(f"🟠 Medium risk — {R['risk_proba']:.1%}")
-else:
-    st.success(f"✅ Low risk — {R['risk_proba']:.1%}")
-
-    # Metrics
     c1, c2 = st.columns(2)
     with c1: st.metric("Risk Probability", f"{R['risk_proba']:.2%}")
     with c2: st.metric("Expected Delay", f"{R['delay_pred']:.1f} days")
 
-    # Scenario table
     st.subheader("🔮 Scenario Simulation")
     st.dataframe(R["comparison"])
 
-    # Chart
     st.subheader("📈 Scenario Comparison Chart")
     st.image(BytesIO(R["chart_png"]), use_container_width=True)
 
-    # Explainability
     st.subheader("🔎 Why did the model predict this?")
     if R["shap_png"]:
         st.image(BytesIO(R["shap_png"]), caption="Top drivers of risk", use_container_width=False)
     else:
         st.info("ℹ️ Explainability not available for this model.")
 
-    # PDF Download
     st.subheader("📑 Download Report")
     pdf_buf = generate_pdf(R, candidate_name=candidate_name, logo_path=None)
     st.download_button("⬇️ Download PDF Report", data=pdf_buf, file_name="risk_delay_report.pdf", mime="application/pdf")
