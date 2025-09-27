@@ -1,4 +1,4 @@
-# 📊 AI Project Risk & Delay Predictor
+# 📊 AI Project Risk & Delay Predictor with Explainability
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -116,7 +116,6 @@ if st.sidebar.button("Predict"):
     comparison_numeric["Risk Probability"].plot(kind="bar", ax=ax1, color="tomato", width=0.4, position=0, label="Risk (%)")
     ax2 = ax1.twinx()
     comparison_numeric["Expected Delay (days)"].plot(kind="bar", ax=ax2, color="skyblue", width=0.4, position=1, label="Delay (days)")
-
     ax1.set_ylabel("Risk Probability (%)", color="tomato")
     ax2.set_ylabel("Expected Delay (days)", color="skyblue")
     ax1.set_xticklabels(comparison_numeric.index, rotation=0)
@@ -125,11 +124,19 @@ if st.sidebar.button("Predict"):
     ax2.legend(loc="upper right")
     st.pyplot(fig)
 
+    # ===== SHAP Explainability =====
+    st.subheader("🔍 Why did the model predict this?")
+    explainer = shap.Explainer(risk_model)
+    shap_values = explainer(input_df)
+    fig_shap, ax = plt.subplots()
+    shap.plots.bar(shap_values, show=False, max_display=7)
+    st.pyplot(fig_shap)
+
     # ===== CSV Export =====
     st.download_button("💾 Download Scenario Results (CSV)", comparison.to_csv().encode("utf-8"), "scenario_results.csv", "text/csv")
 
     # ===== PDF Export =====
-    def generate_pdf(risk, delay, scenarios_df, chart_fig):
+    def generate_pdf(risk, delay, scenarios_df, chart_fig, shap_fig):
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=letter)
         styles = getSampleStyleSheet()
@@ -159,11 +166,18 @@ if st.sidebar.button("Predict"):
         story.append(table)
         story.append(Spacer(1, 20))
 
-        # Add chart image
+        # Add Scenario Chart
         img_buffer = BytesIO()
         chart_fig.savefig(img_buffer, format="png", bbox_inches="tight")
         img_buffer.seek(0)
         story.append(Image(img_buffer, width=400, height=250))
+        story.append(Spacer(1, 20))
+
+        # Add SHAP Chart
+        shap_buf = BytesIO()
+        shap_fig.savefig(shap_buf, format="png", bbox_inches="tight")
+        shap_buf.seek(0)
+        story.append(Image(shap_buf, width=400, height=250))
         story.append(Spacer(1, 20))
 
         # Notes
@@ -178,5 +192,5 @@ if st.sidebar.button("Predict"):
         buffer.seek(0)
         return buffer
 
-    pdf_buffer = generate_pdf(proba, delay_pred, comparison, fig)
+    pdf_buffer = generate_pdf(proba, delay_pred, comparison, fig, fig_shap)
     st.download_button("📥 Download Full Report (PDF)", data=pdf_buffer, file_name="project_risk_report.pdf", mime="application/pdf")
