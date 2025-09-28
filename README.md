@@ -114,7 +114,7 @@ streamlit run streamlit_app.py
 ## 👤 Author
 
 **Sairam Thonuunuri**
-📩 [LinkedIn](https://www.linkedin.com/in/sairam-thonupunuri-068033332/) | [GitHub]()
+📩 [LinkedIn](https://www.linkedin.com/in/sairam-thonupunuri-068033332/) | [GitHub](https://github.com/sairam050)
 
 ---
 
