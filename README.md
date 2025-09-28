@@ -1,91 +1,123 @@
-# 📊 AI Project Risk & Delay Predictor  
+# 🚀 AI Project Risk & Delay Predictor
 
-An interactive web app that predicts **project risk** and **expected delays** using machine learning.  
-Built with **Streamlit**, **scikit-learn**, and **SHAP**, the tool allows users to simulate scenarios, visualize outcomes, and download polished PDF reports.
-
----
-
-## 🚀 Features  
-
-- **Risk & Delay Prediction**: Estimates probability of project failure/delay using trained ML models and outputs expected delay in days.  
-- **Scenario Simulation**: Run *Base Case*, *Optimistic*, and *Pessimistic* scenarios, then compare results side-by-side with tables and charts.  
-- **Explainability (AI Transparency)**: Highlights which features most influenced predictions (via SHAP / feature importances), making the model interpretable for non-technical stakeholders.  
-- **Polished PDF Reports**: Auto-generates downloadable reports with summary, scenario comparison, and visualizations — recruiter-friendly formatting with candidate name included.  
+### Predict project risks and delays instantly with AI.
 
 ---
 
-## 🛠️ Tech Stack  
+## 🔹 Quick Overview (For Recruiters)
 
-- Python 3.10+  
-- Streamlit (frontend & deployment)  
-- scikit-learn (ML models)  
-- SHAP (model explainability)  
-- Matplotlib (charts & plots)  
-- ReportLab (PDF generation)  
+* ✅ Predicts **probability of project failure** (Low / Medium / High)
+* ✅ Estimates **expected schedule delays** (in days)
+* ✅ Runs **what-if scenarios** (Base / Optimistic / Pessimistic)
+* ✅ Explains predictions with **AI-powered feature importance**
+* ✅ Generates a polished **PDF report** for stakeholders
 
----
-
-## 📂 Project Structure  
-
-- **streamlit_app.py** — Main Streamlit app  
-- **rf_risk_classifier.joblib** — Pretrained risk classifier  
-- **rf_delay_regressor.joblib** — Pretrained delay regressor  
-- **requirements.txt** — Dependencies  
-- **README.md** — Project documentation  
+👉 **[Open the App on Streamlit](https://<your-deployed-link>.streamlit.app)**
+*(No setup needed, runs directly in the browser!)*
 
 ---
 
-## ⚡ How to Run  
+## 📊 Example Predictions
 
-1. **Clone the repository**  
-   ```bash
-   git clone https://github.com/sairam050/ai-project-risk-predictor.git
-   cd ai-project-risk-predictor
-   ```
-
-2. **Install dependencies**  
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Run the app locally**  
-   ```bash
-   streamlit run streamlit_app.py
-   ```
-
-4. **Open in browser**  
-   👉 http://localhost:8501  
+| Scenario         | Risk Probability | Expected Delay |
+| ---------------- | ---------------- | -------------- |
+| Low Risk Project | ~15%             | ~12 days       |
+| Medium Risk      | ~45–60%          | ~30 days       |
+| High Risk        | ~80–100%         | ~50+ days      |
 
 ---
 
-## 🌐 Live Demo  
+## 🛠 Tech Stack
 
-The app is deployed on **Streamlit Cloud**:  
-👉 [AI Project Risk & Delay Predictor](https://ai-project-risk-predictor-p2yc7gde6kf8khzpeayn7h.streamlit.app/)  
-
----
-
-## 📑 Example Report  
-
-A generated PDF report includes:  
-- Risk probability  
-- Expected delay  
-- Scenario comparison (table + chart)  
-- Feature importance / SHAP explanation  
+* **Python** – scikit-learn, pandas, numpy
+* **Streamlit** – interactive web app
+* **SHAP** – model explainability
+* **Matplotlib + ReportLab** – charts & PDF reporting
+* **Google Drive (gdown)** – model hosting & auto-download
 
 ---
 
-## 🎯 Why This Project Matters  
+# 🧑‍💻 Detailed Documentation (For Engineers)
 
-- Demonstrates **AI + project management expertise**.  
-- Showcases skills in **ML, data visualization, and app deployment**.  
-- Recruiters and hiring managers can interact with the tool directly.  
+## 📂 Project Structure
+
+```
+├── streamlit_app.py        # Main app file
+├── rf_risk_classifier.joblib  # Risk classification model
+├── rf_delay_regressor.joblib  # Delay prediction model
+├── requirements.txt        # Dependencies
+└── README.md               # Documentation
+```
+
+## ⚙️ How It Works
+
+1. **Input Features**
+
+   * Planned Duration (days)
+   * Team Size
+   * Budget ($k)
+   * Change Requests
+   * Resource Utilization (%)
+   * Complexity Score (0–1)
+   * Onshore %
+
+2. **Model Outputs**
+
+   * **Risk Probability:** Likelihood of project being at risk
+   * **Expected Delay:** Predicted schedule slip in days
+   * **Risk Level:**
+
+     * ✅ Low (< 40%)
+     * 🟠 Medium (40–70%)
+     * ⚠️ High (> 70%)
+
+3. **Explainability**
+
+   * SHAP plots show the top drivers of risk.
+   * Scenario simulations allow “what-if” testing.
+
+4. **Export**
+
+   * Full PDF Report with summary, scenario tables, charts, and explanations.
 
 ---
 
-## 👤 Author  
+## 📑 Setup (For Developers)
 
-**Sairam Thonupunuri**  
-- 📧 sairamthonupunuri05@gmail.com 
-- 🌐 Sairam Thonupunuri  
-- 💻 [Portfolio or GitHub]  
+### 1. Clone the Repo
+
+```bash
+git clone https://github.com/<your-username>/ai-project-risk-predictor.git
+cd ai-project-risk-predictor
+```
+
+### 2. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Run Locally
+
+```bash
+streamlit run streamlit_app.py
+```
+
+### 4. Deploy on Streamlit Cloud
+
+* Push repo to GitHub.
+* Connect GitHub repo in **Streamlit Cloud**.
+* App auto-deploys at `<your-app>.streamlit.app`.
+
+---
+
+## 👤 Author
+
+**Sairam Thonuunuri**
+📩 [LinkedIn](https://linkedin.com/in/your-link) | [GitHub](https://github.com/your-username)
+
+---
+
+⚡ **Tip:**
+The **top section** is short & punchy for recruiters.
+The **bottom section** is detailed for engineers/reviewers.
