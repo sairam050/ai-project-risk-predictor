@@ -12,7 +12,7 @@
 * ✅ Explains predictions with **AI-powered feature importance**
 * ✅ Generates a polished **PDF report** for stakeholders
 
-👉 **[Open the App on Streamlit](https://<your-deployed-link>.streamlit.app)**
+👉 **[Open the App on Streamlit](https://ai-project-risk-predictor-p2yc7gde6kf8khzpeayn7h.streamlit.app/)**
 *(No setup needed, runs directly in the browser!)*
 
 ---
