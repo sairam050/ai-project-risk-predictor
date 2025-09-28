@@ -38,7 +38,7 @@ def download_if_missing(url, output):
 @st.cache_resource
 def load_models():
     """Download models if missing and load them once (cached)."""
-    # 🔗 Updated Google Drive direct links (calibrated models)
+    # 🔗 Your latest calibrated Google Drive models
     risk_url  = "https://drive.google.com/uc?id=1xKLRlQGKafW4pSr7HuUuTVwbc-F8Ppf8"
     delay_url = "https://drive.google.com/uc?id=1CrscXUqZL_ZcKn3LM9vV2j9oZ209eEJy"
 
@@ -186,11 +186,13 @@ input_df = pd.DataFrame([[
 
 # ================== Predict & Render ==================
 if st.sidebar.button("🚀 Predict"):
-    risk_proba = float(risk_model.predict_proba(input_df)[:, 1][0])
-    # Rescale probabilities to spread across 0–1
-    risk_proba = min(max((risk_proba - 0.3) / 0.7, 0), 1)
+    # Get raw prediction
+    raw_risk = float(risk_model.predict_proba(input_df)[:, 1][0])
+    # 🔧 Apply rescaling to smooth results
+    risk_proba = np.clip((raw_risk - 0.2) / 0.8, 0, 1)
     delay_pred = float(delay_model.predict(input_df)[0])
 
+    # Scenarios
     scenarios = {
         "Base Case": [planned_duration_days, team_size, budget_k, num_change_requests,
                       pct_resource_util, complexity_score, onshore_pct],
@@ -205,7 +207,8 @@ if st.sidebar.button("🚀 Predict"):
     results_map = {}
     for label, vals in scenarios.items():
         df = pd.DataFrame([vals], columns=input_df.columns)
-        p = float(risk_model.predict_proba(df)[:, 1][0])
+        p_raw = float(risk_model.predict_proba(df)[:, 1][0])
+        p = np.clip((p_raw - 0.2) / 0.8, 0, 1)  # Apply same rescaling
         d = float(delay_model.predict(df)[0])
         results_map[label] = (p, d)
 
